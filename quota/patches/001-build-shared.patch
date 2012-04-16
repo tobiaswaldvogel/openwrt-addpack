@@ -1,0 +1,72 @@
+--- quota-tools/Makefile.in.orig	2012-01-11 08:15:17.878409596 +0100
++++ quota-tools/Makefile.in	2012-01-11 08:23:03.626366559 +0100
+@@ -104,38 +104,46 @@
+ 	-$(INSTALL) -m $(DEF_MAN_MODE) *.3 $(ROOTDIR)$(mandir)/man3
+ 	-$(INSTALL) -m $(DEF_MAN_MODE) *.8 $(ROOTDIR)$(mandir)/man8
+ 
+-quotaon: quotaon.o quotaon_xfs.o $(LIBOBJS)
++quotaon: quotaon.o quotaon_xfs.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-quotacheck: quotacheck.o quotacheck_v1.o quotacheck_v2.o quotaops.o $(LIBOBJS)
+-	$(CC) $(LDFLAGS) -o $@ $^ $(EXT2LIBS)
++quotacheck: quotacheck.o quotacheck_v1.o quotacheck_v2.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-quota: quota.o quotaops.o $(LIBOBJS)
++quota: quota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-quotasync: quotasync.o $(LIBOBJS)
++quotasync: quotasync.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-quot: quot.o $(LIBOBJS)
++quot: quot.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-repquota: repquota.o $(LIBOBJS)
++repquota: repquota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-warnquota: warnquota.o $(LIBOBJS)
+-	$(CC) $(LDFLAGS) -o $@ $^ $(LDAPLIBS)
++warnquota: warnquota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ $(LDAPLIBS) -lquota
+ 
+ quotastats: quotastats.o common.o pot.o
+ 
+ xqmstats: xqmstats.o common.o pot.o
+ 
+-edquota: edquota.o quotaops.o $(LIBOBJS)
++edquota: edquota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-setquota: setquota.o quotaops.o $(LIBOBJS)
++setquota: setquota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-convertquota: convertquota.o $(LIBOBJS)
++convertquota: convertquota.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ 
+-rpc.rquotad: rquota_server.o rquota_svc.o svc_socket.o $(LIBOBJS)
+-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
++rpc.rquotad: rquota_server.o rquota_svc.o svc_socket.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) -lquota
+ 
+ ifneq ($(NETLINKLIBS),)
+-quota_nld: quota_nld.o $(LIBOBJS)
+-	$(CC) $(LDFLAGS) -o $@ $^ $(NETLINKLIBS)
++quota_nld: quota_nld.o libquota.so
++	$(CC) $(LDFLAGS) -o $@ $^ -lquota
+ endif
+ 
+ pot.o: pot.c pot.h
+@@ -153,3 +161,6 @@
+ 	$(RPCGEN) -l -o $@ $<
+ 
+ -include $(SOURCES:%.c=.%.d)
++
++libquota.so: $(LIBOBJS) quotaops.o
++	$(CC) $(CFLAGS) -shared -Wl,-Bsymbolic -Wl,-z,relro -Wl,-soname,$@ $(LDFLAGS) -o $@ $(LIBOBJS) quotaops.o

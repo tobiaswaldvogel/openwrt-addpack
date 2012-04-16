@@ -1,0 +1,33 @@
+--- mediatomb-0.12.1/configure.ac.orig	2011-10-27 22:42:37.189313996 +0200
++++ mediatomb-0.12.1/configure.ac	2011-10-27 22:48:31.374275654 +0200
+@@ -512,30 +512,6 @@
+ AC_SUBST(ICONV_LIBS)
+ 
+ CFLAGS="$CFLAGS $ICONV_CXXFLAGS -Werror"
+-AC_MSG_CHECKING([if iconv declaration requires const char cast])
+-AC_COMPILE_IFELSE(
+-     [AC_LANG_PROGRAM(
+-         [
+-             #include <stdlib.h>
+-             #include <iconv.h>
+-         ],
+-         [
+-            char **ptr = NULL;
+-            size_t len;
+-            iconv_t cd = NULL;
+-            (void)iconv(cd, ptr, &len, ptr, &len);
+-         ]
+-     )],
+-     [
+-         AC_MSG_RESULT([no])
+-     ],
+-     [
+-         AC_DEFINE([ICONV_CONST], [1], 
+-                   [iconv needs const char cast])
+-
+-         AC_MSG_RESULT([yes])
+-     ])
+-
+ 
+ CFLAGS="$CFLAGS_SAVE"
+ CXXFLAGS="$CXXFLAGS_SAVE"

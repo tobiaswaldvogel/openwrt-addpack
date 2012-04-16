@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+START=01
+
+iomux() {
+	local enabled
+	config_get_bool enabled $1 enabled 0	
+	[ "$enabled" -gt 0 ] && {
+		iomux=2
+		mode_sata0=3
+		mode_sata1=17
+		enable_slave=1
+	}
+}
+
+start() {
+	iomux=0
+	mode_sata0=1
+	mode_sata1=1
+	enable_slave=0
+
+	config_load pata_gemini
+	config_foreach iomux iomux
+
+	insmod pata_gemini iomux=$iomux mode_sata0=$mode_sata0 mode_sata1=$mode_sata1 enable_slave=$enable_slave
+	sleep 5
+}

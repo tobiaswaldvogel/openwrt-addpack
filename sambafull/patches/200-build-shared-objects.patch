@@ -1,0 +1,108 @@
+--- samba-3.6.1/source3/Makefile.in.orig	2011-10-18 20:48:48.000000000 +0200
++++ samba-3.6.1/source3/Makefile.in	2011-11-13 02:09:15.000000000 +0100
+@@ -1525,12 +1525,15 @@
+ 		   $(POPT_LIB_OBJ) \
+ 	           $(LIBSAMBA_OBJ)
+ 
++SHARED_PROGS = bin/smbd.shared bin/nmbd.shared bin/smbpasswd.shared bin/smbstatus.shared \
++		bin/smbcquotas.shared bin/smbtree.shared bin/smbcontrol.shared bin/testparm.shared
++
+ ######################################################################
+ # now the rules...
+ ######################################################################
+ all:: SHOWFLAGS basics libs $(SBIN_PROGS) $(BIN_PROGS) \
+ 	$(MODULES) $(NSS_MODULES) $(PAM_MODULES) \
+-	$(EXTRA_ALL_TARGETS)
++	$(EXTRA_ALL_TARGETS) $(SHARED_PROGS)
+ 
+ basics:: samba3-idl
+ 
+@@ -3557,3 +3560,88 @@
+ 	make clean && \
+ 	make \
+ 	)
++
++LIBSMBSHARED_OBJ = $(LIB_OBJ) $(POPT_LIB_OBJ) $(LIBSMB_OBJ) $(PARAM_OBJ) $(UBIQX_OBJ) \
++		$(PASSDB_OBJ) $(PASSWD_UTIL_OBJ) $(PASSCHANGE_OBJ) $(GROUPDB_OBJ) $(LDB_OBJ) $(RPC_PARSE_OBJ) \
++		$(RPC_SERVER_OBJ) $(LIBMSRPC_GEN_OBJ) $(LIBMSRPC_OBJ) \
++		$(LIBADS_OBJ) $(LIBADS_SERVER_OBJ) $(LIBADS_PRINTER_OBJ) $(LOCKING_OBJ) $(OPLOCK_OBJ) \
++		$(NOTIFY_OBJ) $(AUTH_OBJ) $(BUILDOPT_OBJ) \
++		$(SMBLDAP_OBJ) $(LIBNET_OBJ) $(SMBD_OBJ_SRV) \
++		$(PRINTING_OBJ) $(PRINTBACKEND_OBJ) \
++		$(PROFILE_OBJ) $(KRBCLIENT_OBJ) $(AUTH_LIBS) \
++		$(FNAME_UTIL_OBJ) \
++		$(LIBNDR_XATTR_OBJ) $(AVAHI_OBJ) \
++		$(REGFIO_OBJ) $(REG_API_REGF_OBJ) $(REG_BACKENDS_EXTRA_OBJ) \
++		registry/reg_perfcount.o registry/reg_init_full.o \
++		lib/server_ex.o smbd/server_exit.o
++
++bin/libsmb.so: $(LIBSMBSHARED_OBJ)
++	@echo Linking shared library $@
++	@$(SHLD)  $(LDSHFLAGS) -o $@ $(LIBSMBSHARED_OBJ) \
++		$(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) $(LIBS) \
++		$(ACL_LIBS) $(AVAHI_LIBS) $(LIBTALLOC_LIBS) \
++		$(LIBTDB_LIBS) $(ZLIB_LIBS) $(LIBWBCLIENT_LIBS)
++
++bin/smbd.shared: $(SMBD_OBJ_MAIN) $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) -o $@ $(SMBD_OBJ_MAIN) $(LDFLAGS) $(LDAP_LIBS)  \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/nmbd.shared: $(NMBD_OBJ1) $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) -o $@ $(NMBD_OBJ1) $(LDFLAGS) $(DYNEXP) $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/smbpasswd.shared : utils/smbpasswd.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS)  utils/smbpasswd.o $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/smbstatus.shared : utils/status.o utils/status_profile.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/status.o utils/status_profile.o $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/smbcquotas.shared: utils/smbcquotas.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/smbcquotas.o $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/smbtree.shared: utils/smbtree.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/smbtree.o  $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/smbcontrol.shared: utils/smbcontrol.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) -DUSING_SMBCONTROL $(FLAGS) -o $@ $(LDFLAGS) utils/smbcontrol.o $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb
++
++bin/testparm.shared: utils/testparm.o $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) bin/libsmb.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/testparm.o $(LIBS) \
++		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \
++		$(ACL_LIBS) $(PASSDB_LIBS) $(LIBS) $(DNSSD_LIBS) $(AVAHI_LIBS) \
++		$(POPT_LIBS)  $(LIBTALLOC_LIBS) $(LIBTDB_LIBS) \
++		$(LIBWBCLIENT_LIBS) $(ZLIB_LIBS) -lsmb

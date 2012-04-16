@@ -1,0 +1,89 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008 OpenWrt.org
+START=95
+MDADM=/usr/sbin/mdadm
+SMARTD=/usr/sbin/smartd
+
+general() {
+	local section="$1"
+	config_get "email" "$section" "email"
+	config_get_bool "test" "$section" "test" '0'
+}
+
+raid_mon() {
+	local section="$1"
+	local testcmd=""
+		 
+        config_get_bool "enabled" "$section" "enabled" '0'
+	[ "$test" -ne "0" ] && testcmd="--test "
+	[ "$enabled" -ne "0" ] && [ -x $MDADM ] && $MDADM --monitor --scan --daemonize $testcmd --mail=$email >/dev/null 2>/dev/null
+}
+
+smart_mon() {
+	local section="$1"
+	local tescmd=""
+
+	config_get "disk" "$section" "disk"
+	config_get_bool "enabled" "$section" "enabled" '0'
+	[ "$test" -ne 0 ] && testcmd="-M test "
+	[ "$enabled" -ne "0" ] && echo $disk -n standby,q -H -l error -m $email -M exec /tmp/smartd.mail $testcmd >>/tmp/smartd.conf	
+}
+
+ssmtp() {
+	local section="$1"
+	
+	config_get "mx" "$section" "mx"
+	echo "mailhub=$mx" >/tmp/ssmtp.conf
+	config_get "sender" "$section" "sender"
+	echo "root=$sender" >>/tmp/ssmtp.conf
+	echo "root:$sender" > /tmp/ssmtp.revaliases
+	config_get "user" "$section" "user"
+	[ -n "$user" ] && echo "AuthUser=$user" >>/tmp/ssmtp.conf
+	config_get "pwd" "$section" "pwd"
+	[ -n "$pwd" ] && echo "AuthPass=$pwd" >>/tmp/ssmtp.conf
+	config_get "authtype" "$section" "authtype"
+	[ -n $authtype ] && echo "AuthMethod=\"$authtype\"" >>/tmp/ssmtp.conf		
+	config_get_bool "TLS" "$section" "TLS"
+	[ "$TLS" -ne 0 ] && {
+		echo "UseTLS=yes" >>/tmp/ssmtp.conf
+		echo "UseStartTLS=yes" >>/tmp/ssmtp.conf
+	}
+}
+
+run_smart_mon() {
+	cat <<EOF >/tmp/smartd.mail
+#!/bin/sh
+{
+	echo Subject: \$2
+	cat
+} | sendmail \$3
+EOF
+                 
+	chmod 755  /tmp/smartd.mail
+	$SMARTD -i 21600 -c /tmp/smartd.conf
+}
+
+start() {
+	rm /tmp/smartd.conf >/dev/null 2>&1
+	rm /tmp/ssmtp.conf >/dev/null 2>&1
+
+	config_load "hd-mon"
+	config_foreach ssmtp "ssmtp"
+	config_foreach general "hdmon"
+	config_foreach raid_mon "raid"
+	config_foreach smart_mon "smart"
+	[ -e /tmp/smartd.conf ] && [ -x $SMARTD ] && run_smart_mon
+}
+
+stop()	{
+	killall mdadm
+	killall smartd
+	rm /tmp/smartd.conf  >/dev/null 2>&1
+	rm /tmp/smartd.mail  >/dev/null 2>&1
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}

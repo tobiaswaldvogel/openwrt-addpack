@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2007 OpenWrt.org
+
+START=96
+
+start() {
+	/usr/bin/mediatomb -c /etc/mediatomb/config.xml -d -l /var/log/mediatomb.log
+}
+
+stop() {
+	killall mediatomb 
+}

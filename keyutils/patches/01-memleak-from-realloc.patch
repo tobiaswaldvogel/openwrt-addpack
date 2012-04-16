@@ -1,0 +1,49 @@
+Author: Michael Gebetsroither <gebi@grml.org>
+Description: Fixed memleak from realloc (Closes: #496466).
+
+diff -Naurp keyutils.orig/keyutils.c keyutils/keyutils.c
+--- keyutils.orig/keyutils.c	2011-08-12 20:37:44.000000000 +0200
++++ keyutils/keyutils.c	2011-08-22 11:44:17.207365091 +0200
+@@ -221,6 +221,24 @@ long keyctl_instantiate_iov(key_serial_t
+ 	return ret;
+ }
+ 
++
++/*****************************************************************************/
++/*
++ * plain realloc is just crazy
++ */
++static void* __xrealloc(void* ptr, size_t size)
++{
++    void* ret;
++
++    ret = realloc(ptr, size);
++    if(!ret) {
++        free(ptr);
++        return 0;
++    }
++    return ret;
++}
++
++
+ /*****************************************************************************/
+ /*
+  * fetch key description into an allocated buffer
+@@ -250,7 +268,7 @@ int keyctl_describe_alloc(key_serial_t i
+ 			break;
+ 
+ 		buflen = ret;
+-		buf = realloc(buf, buflen);
++		buf = __xrealloc(buf, buflen);
+ 		if (!buf)
+ 			return -1;
+ 	}
+@@ -289,7 +307,7 @@ int keyctl_read_alloc(key_serial_t id, v
+ 			break;
+ 
+ 		buflen = ret;
+-		buf = realloc(buf, buflen + 1);
++		buf = __xrealloc(buf, buflen + 1);
+ 		if (!buf)
+ 			return -1;
+ 	}

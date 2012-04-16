@@ -1,0 +1,22 @@
+
+config 'hdmon'
+	option 'email' 'email'
+
+config 'ssmtp'
+	option 'mx' 'smtp'
+	option 'user' 'user'
+	option 'pwd' 'pass'
+	option 'sender' 'email'
+	option 'TLS' '1'
+
+config 'raid'
+	option 'enabled' '1'
+
+config 'smart'
+	option 'enabled' '1'
+	option 'disk' '/dev/sda'
+
+config 'smart'
+	option 'enabled' '1'
+	option 'disk' '/dev/sdb'
+

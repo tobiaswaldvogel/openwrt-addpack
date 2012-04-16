@@ -1,0 +1,30 @@
+--- nss_ldap-265/util.c.orig	2011-11-02 16:52:33.378309893 +0100
++++ nss_ldap-265/util.c	2011-11-02 17:09:05.528108227 +0100
+@@ -786,10 +786,6 @@
+   struct stat statbuf;
+ 
+   fp = fopen (NSS_LDAP_PATH_CONF, "r");
+-  if (fp == NULL)
+-    {
+-      return NSS_UNAVAIL;
+-    }
+ 
+   if (bytesleft (*buffer, *buflen, ldap_config_t *) < sizeof (ldap_config_t))
+     {
+@@ -808,6 +804,8 @@
+       return NSS_SUCCESS;
+     }
+ 
++  if (fp != NULL) {
++
+   if (fstat (fileno (fp), &statbuf) == 0)
+       result->ldc_mtime = statbuf.st_mtime;
+   else
+@@ -1233,6 +1231,7 @@
+     }
+ 
+   fclose (fp);
++  }
+ 
+   if (stat != NSS_SUCCESS)
+     {

@@ -1,0 +1,29 @@
+--- quota-tools/common.c.orig	2012-01-10 14:33:02.976207764 +0100
++++ quota-tools/common.c	2012-01-10 14:33:50.099200435 +0100
+@@ -24,7 +24,7 @@
+ 
+ void use_syslog(void)
+ {
+-	openlog(progname,0,LOG_DAEMON);
++	openlog("quotatools",0,LOG_DAEMON);
+ 	enable_syslog=1;
+ }
+ 
+@@ -53,7 +53,7 @@
+ 		do_syslog(LOG_CRIT, fmtstr, args);
+ 		syslog(LOG_CRIT, "Exiting with status %d", ret);
+ 	} else {
+-		fprintf(stderr, "%s: ", progname);
++		fprintf(stderr, "%s: ", "quotatools");
+ 		vfprintf(stderr, fmtstr, args);
+ 	}
+ 	va_end(args);
+@@ -68,7 +68,7 @@
+ 	if (enable_syslog)
+ 		do_syslog(LOG_ERR, fmtstr, args);
+ 	else {
+-		fprintf(stderr, "%s: ", progname);
++		fprintf(stderr, "%s: ", "quotatools");
+ 		vfprintf(stderr, fmtstr, args);
+ 	}
+ 	va_end(args);

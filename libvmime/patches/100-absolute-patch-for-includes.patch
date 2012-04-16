@@ -1,0 +1,20 @@
+--- libvmime-0.9.2/src/Makefile.in.orig	2011-11-17 23:37:32.058334462 +0100
++++ libvmime-0.9.2/src/Makefile.in	2011-11-17 23:38:03.067556243 +0100
+@@ -326,7 +326,7 @@
+ libvmime_la_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(AM_CXXFLAGS) \
+ 	$(CXXFLAGS) $(libvmime_la_LDFLAGS) $(LDFLAGS) -o $@
+-DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
++DEFAULT_INCLUDES = -I.@am__isrc@ -I$(abs_top_builddir)
+ depcomp =
+ am__depfiles_maybe =
+ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+@@ -496,7 +496,7 @@
+ top_srcdir = @top_srcdir@
+ AUTOMAKE_OPTIONS = no-dependencies foreign
+ INTERNALS = 
+-INCLUDES = -I$(prefix)/include -I$(top_srcdir) @PKGCONFIG_CFLAGS@ @EXTRA_CFLAGS@
++INCLUDES = -I$(abs_top_srcdir) @PKGCONFIG_CFLAGS@ @EXTRA_CFLAGS@
+ lib_LTLIBRARIES = libvmime.la
+ libvmime_la_LDFLAGS = -export-dynamic -version-info @LIBRARY_VERSION@ @PKGCONFIG_LIBS@ @EXTRA_LIBS@
+ libvmime_la_SOURCES = address.cpp addressList.cpp attachmentHelper.cpp \

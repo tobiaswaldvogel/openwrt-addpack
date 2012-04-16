@@ -1,0 +1,182 @@
+--- samba-3.3.1/source/Makefile.in.orig	2010-03-15 22:27:46.000000000 +0100
++++ samba-3.3.1/source/Makefile.in	2010-03-16 01:59:42.000000000 +0100
+@@ -1525,13 +1525,16 @@
+ 		   librpc/rpc/binding.o \
+ 		   $(LIBMSRPC_GEN_OBJ)
+ 
++SHARED_PROGS = bin/smbd.shared bin/nmbd.shared bin/smbpasswd.shared bin/smbstatus.shared \
++		bin/ldbsearch.shared bin/ldbedit.shared bin/ldbadd.shared bin/ldbdel.shared \
++		bin/ldbrename.shared bin/ldbmodify.shared bin/smbtree.shared bin/smbcontrol.shared
+ 
+ ######################################################################
+ # now the rules...
+ ######################################################################
+ all:: SHOWFLAGS libs $(SBIN_PROGS) $(BIN_PROGS) $(ROOT_SBIN_PROGS) \
+ 	$(MODULES) $(NSS_MODULES) $(PAM_MODULES) @CIFSUPCALL_PROGS@ \
+-	$(EXTRA_ALL_TARGETS)
++	$(EXTRA_ALL_TARGETS) $(SHARED_PROGS)
+ 
+ nss_modules:: $(NSS_MODULES)
+ 
+@@ -3523,3 +3524,116 @@
+ 
+ clean_libsmbclient_examples:
+ 	$(MAKE) -C ../examples/libsmbclient -f Makefile.internal clean
++
++NMBDSHARED_OBJ = nmbd/asyncdns.o nmbd/nmbd.o nmbd/nmbd_become_dmb.o \
++		nmbd/nmbd_become_lmb.o nmbd/nmbd_browserdb.o \
++		nmbd/nmbd_browsesync.o nmbd/nmbd_elections.o \
++		nmbd/nmbd_incomingdgrams.o nmbd/nmbd_incomingrequests.o \
++		nmbd/nmbd_lmhosts.o nmbd/nmbd_logonnames.o nmbd/nmbd_mynames.o \
++		nmbd/nmbd_namelistdb.o nmbd/nmbd_namequery.o \
++		nmbd/nmbd_nameregister.o nmbd/nmbd_namerelease.o \
++		nmbd/nmbd_nodestatus.o nmbd/nmbd_packets.o \
++		nmbd/nmbd_processlogon.o nmbd/nmbd_responserecordsdb.o \
++		nmbd/nmbd_sendannounce.o nmbd/nmbd_serverlistdb.o \
++		nmbd/nmbd_subnetdb.o nmbd/nmbd_winsproxy.o nmbd/nmbd_winsserver.o \
++		nmbd/nmbd_workgroupdb.o nmbd/nmbd_synclists.o
++
++LIBSMBSHARED_OBJ = $(LIB_OBJ) $(POPT_LIB_OBJ) $(LIBSMB_OBJ) $(PARAM_OBJ) $(UBIQX_OBJ) \
++		$(PASSDB_OBJ) $(PASSWD_UTIL_OBJ) $(PASSCHANGE_OBJ) $(GROUPDB_OBJ) $(LDB_OBJ) $(RPC_PARSE_OBJ) \
++		$(RPC_SERVER_OBJ) $(LIBMSRPC_GEN_OBJ) $(LIBMSRPC_OBJ) \
++		$(LIBADS_OBJ) $(LIBADS_SERVER_OBJ) $(LOCKING_OBJ) $(OPLOCK_OBJ) \
++		$(NOTIFY_OBJ) $(AUTH_OBJ) $(BUILDOPT_OBJ) \
++		$(SMBLDAP_OBJ) $(LIBNET_OBJ) \
++		$(PRINTING_OBJ) $(PRINTBACKEND_OBJ) \
++		printing/printfsp.o lib/sysquotas.o lib/sysquotas_linux.o \
++		lib/sysquotas_xfs.o lib/sysquotas_4A.o \
++		smbd/statcache.o smbd/vfs.o smbd/statvfs.o \
++		smbd/connection.o smbd/change_trust_pw.o \
++		smbd/files.o smbd/chgpasswd.o \
++		smbd/utmp.o smbd/session.o smbd/map_username.o \
++		smbd/dfree.o smbd/dir.o smbd/password.o smbd/conn.o \
++		smbd/share_access.o smbd/fileio.o \
++		smbd/ipc.o smbd/lanman.o smbd/negprot.o \
++		smbd/message.o smbd/nttrans.o smbd/pipes.o \
++		smbd/reply.o smbd/sesssetup.o smbd/trans2.o smbd/uid.o \
++		smbd/dosmode.o smbd/filename.o smbd/open.o smbd/close.o \
++		smbd/blocking.o smbd/sec_ctx.o smbd/srvstr.o \
++		smbd/seal.o \
++		smbd/posix_acls.o lib/sysacls.o \
++		smbd/process.o smbd/service.o smbd/error.o \
++		smbd/dmapi.o smbd/file_access.o smbd/dnsregister.o \
++		smbd/fake_file.o \
++		smbd/quotas.o smbd/ntquotas.o smbd/msdfs.o \
++		smbd/aio.o \
++		$(MANGLE_OBJ)  $(VFS_DEFAULT_OBJ) \
++		registry/reg_init_full.o registry/reg_eventlog.o  registry/reg_perfcount.o \
++		registry/reg_util_legacy.o $(REG_BACKENDS_EXTRA_OBJ) \
++		$(PROFILE_OBJ) $(KRBCLIENT_OBJ)
++
++bin/libsmb.so: $(LIBSMBSHARED_OBJ)
++	@echo Linking shared library $@
++	@$(SHLD)  $(LDSHFLAGS) -o $@ $(LIBSMBSHARED_OBJ) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) $(LIBS)
++
++bin/libldbcmd.so: lib/ldb/tools/cmdline.o
++	@echo Linking shared library $@
++	@$(SHLD)  $(LDSHFLAGS) -o $@  lib/ldb/tools/cmdline.o $(LIBS)
++
++bin/smbd.shared :  $(SMBD_OBJ_MAIN) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) $(SMBD_OBJ_MAIN) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
++
++bin/nmbd.shared : $(NMBDSHARED_OBJ) $(LIB_DUMMY_OBJ) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) $(NMBDSHARED_OBJ) $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
++
++bin/smbpasswd.shared : utils/smbpasswd.o $(LIB_DUMMY_OBJ) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS)  utils/smbpasswd.o   $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
++
++bin/smbstatus.shared : utils/status.o utils/status_profile.o $(LIB_DUMMY_OBJ) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/status.o utils/status_profile.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
++
++bin/ldbsearch.shared: lib/ldb/tools/ldbsearch.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbsearch.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/ldbedit.shared: lib/ldb/tools/ldbedit.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbedit.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/ldbadd.shared: lib/ldb/tools/ldbadd.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbadd.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/ldbdel.shared: lib/ldb/tools/ldbdel.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbdel.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/ldbmodify.shared: lib/ldb/tools/ldbmodify.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbmodify.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/ldbrename.shared: lib/ldb/tools/ldbrename.o $(LIB_DUMMY_OBJ) bin/libldbcmd.so bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) lib/ldb/tools/ldbrename.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient -lldbcmd
++
++bin/smbtree.shared: utils/smbtree.o $(LIB_DUMMY_OBJ) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) $(FLAGS) -o $@ $(LDFLAGS) utils/smbtree.o  $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
++
++bin/smbcontrol.shared: utils/smbcontrol.o $(LIB_DUMMY_OBJ) bin/libtalloc.so bin/libtdb.so bin/libsmb.so bin/libwbclient.so
++	@echo Linking $@
++	@$(CC) -DUSING_SMBCONTROL $(FLAGS) -o $@ $(LDFLAGS) utils/smbcontrol.o $(LIB_DUMMY_OBJ) $(LIBS) \
++		$(LIBTALLOC_LIBS) $(LIBTDB_LIBS) $(LDAP_LIBS) $(KRB5LIBS) $(POPT_LIBS) -lsmb -lwbclient
+--- samba-3.3.1/source/lib/dummysmbd.c.orig	2010-03-16 02:02:08.000000000 +0100
++++ samba-3.3.1/source/lib/dummysmbd.c	2010-03-15 21:49:32.000000000 +0100
+@@ -71,3 +71,42 @@
+ {
+ 	return NULL;
+ }
++
++bool reload_services(bool test)
++{
++	return true;
++}
++
++void reload_printers(void)
++{
++}
++
++void exit_server_cleanly(const char *const explanation)
++{
++	exit(0);
++}
++
++void exit_server(const char *const explanation)
++{
++	exit(0);
++}
++
++struct memcache *smbd_memcache(void)
++{
++        static struct memcache *cache;
++
++        if (!cache
++            && !(cache = memcache_init(talloc_autofree_context(),
++                                       lp_max_stat_cache_size()*1024))) {
++
++                smb_panic("Could not init smbd memcache");
++        }
++        return cache;
++}
++
++static int server_fd = -1;
++
++int smbd_server_fd(void)
++{
++        return server_fd;
++}

@@ -1,0 +1,11 @@
+Index: samba-3.3.1/source/client/mtab.c
+--- mtab.c.orig    2009-03-08 20:07:12.918286843 -0600
++++ mtab.c    2009-03-08 20:07:31.620287687 -0600
+@@ -38,7 +38,7 @@
+ #include <stdlib.h>
+ #include <signal.h>
+ #include "mount.h"
+-
++#include <sys/stat.h>
+ 
+ /* Updating mtab ----------------------------------------------*/

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://mediatomb.cc/0.11.0-pre/config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://mediatomb.cc/0.11.0-pre/config http://mediatomb.cc/0.11.0-pre/config.xsd">
+  <server>
+    <port>49152</port>
+    <protocolInfo extend="yes"/>
+    <ui enabled="yes">
+      <accounts enabled="no" session-timeout="30"/>
+    </ui>
+    <name>MediaTomb</name>
+    <udn/>
+    <home>/etc/mediatomb/</home>
+    <webroot>/usr/share/mediatomb/web</webroot>
+    <storage driver="sqlite3">
+      <database-file>mediatomb.db</database-file>
+    </storage>
+  </server>
+  <import hidden-files="no">
+	<filesystem-charset>UTF-8</filesystem-charset>
+	<metadata-charset>UTF-8</metadata-charset>
+	<mappings>
+		<extension-mimetype ignore-unknown="no">
+			<map from="mp3" to="audio/mpeg"/>
+			<map from="mp4" to="video/mp4"/>
+			<map from="mpg" to="video/mpeg"/>
+			<map from="mpeg" to="video/mpeg"/>
+			<map from="vob" to="video/mpeg"/>
+			<map from="VOB" to="video/mpeg"/> 
+		</extension-mimetype>
+		<mimetype-upnpclass>
+			<map from="audio/*" to="object.item.audioItem.musicTrack"/> 
+			<map from="application/ogg" to="object.item.audioItem.musicTrack"/> 
+			<map from="video/*" to="object.item.videoItem"/> 
+			<map from="image/*" to="object.item.imageItem"/> 
+		</mimetype-upnpclass>
+		<mimetype-contenttype> 
+			<treat mimetype="audio/mpeg" as="mp3"/> 
+			<treat mimetype="application/ogg" as="ogg"/> 
+			<treat mimetype="audio/x-flac" as="flac"/> 
+			<treat mimetype="image/jpeg" as="jpg"/> 
+		</mimetype-contenttype>
+	</mappings>
+	
+    <scripting script-charset="UTF-8">
+      <virtual-layout type="builtin"/>
+    </scripting>
+  </import>
+<transcoding enabled="no">
+    <mappings>
+        <mimetype-profile>
+            <transcode mimetype="video/x-msvideo" using="ffmpeg-sh"/>
+        </mimetype-profile>
+    </mappings>
+    <profiles>
+        <profile name="ffmpeg-sh" enabled="yes" type="external">
+            <mimetype>video/mpeg</mimetype>
+            <accept-url>yes</accept-url>
+            <first-resource>yes</first-resource>
+            <agent command="ffmpeg-tr.sh" arguments="%in %out"/>
+            <buffer size="10485760" chunk-size="131072" fill-size="5242880"/>
+        </profile>
+    </profiles>
+  </transcoding>
+ </config>
+ 

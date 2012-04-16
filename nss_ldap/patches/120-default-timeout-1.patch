@@ -1,0 +1,11 @@
+--- nss_ldap-265/util.c.orig	2011-11-10 22:29:03.017778116 +0100
++++ nss_ldap-265/util.c	2011-11-10 22:29:34.116448158 +0100
+@@ -626,7 +626,7 @@
+   result->ldc_version = LDAP_VERSION2;
+ #endif /* LDAP_VERSION3 */
+   result->ldc_timelimit = LDAP_NO_LIMIT;
+-  result->ldc_bind_timelimit = 30;
++  result->ldc_bind_timelimit = 1;
+   result->ldc_ssl_on = SSL_OFF;
+   result->ldc_sslpath = NULL;
+   result->ldc_referrals = 1;

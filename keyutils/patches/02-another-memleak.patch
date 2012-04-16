@@ -1,0 +1,30 @@
+Author: Michael Gebetsroither <gebi@grml.org>
+Description: Fixed another memleak (Closes: #496466).
+
+diff -Naurp keyutils.orig/keyutils.c keyutils/keyutils.c
+--- keyutils.orig/keyutils.c	2011-08-22 11:47:35.344347556 +0200
++++ keyutils/keyutils.c	2011-08-22 11:47:42.920384030 +0200
+@@ -261,8 +261,10 @@ int keyctl_describe_alloc(key_serial_t i
+ 
+ 	for (;;) {
+ 		ret = keyctl_describe(id, buf, buflen);
+-		if (ret < 0)
++		if (ret < 0) {
++            free(buf);
+ 			return -1;
++        }
+ 
+ 		if (buflen >= ret)
+ 			break;
+@@ -300,8 +302,10 @@ int keyctl_read_alloc(key_serial_t id, v
+ 
+ 	for (;;) {
+ 		ret = keyctl_read(id, buf, buflen);
+-		if (ret < 0)
++		if (ret < 0) {
++            free(buf);
+ 			return -1;
++        }
+ 
+ 		if (buflen >= ret)
+ 			break;

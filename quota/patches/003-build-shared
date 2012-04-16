@@ -1,0 +1,17 @@
+--- quota-tools/configure.in.orig	2012-01-11 18:36:00.443414527 +0100
++++ quota-tools/configure.in	2012-01-11 18:37:41.232406161 +0100
+@@ -12,11 +12,11 @@
+ 	,
+ 	enable_static_link="no")
+ if test "x$enable_static_link" != "xyes"; then
+-	AC_MSG_CHECKING(whether compiler supports PIE)
++	AC_MSG_CHECKING(whether compiler supports PIC)
+ 	oldCFLAGS="$CFLAGS"
+-	CFLAGS="$CFLAGS -fPIE"
++	CFLAGS="$CFLAGS -fPIC"
+ 	oldLDFLAGS="$LDFLAGS"
+-	LDFLAGS="$LDFLAGS -pie"
++	LDFLAGS="$LDFLAGS"
+ 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[]])], compilepie="yes")
+ 	if test "x$compilepie" != "xyes"; then
+ 		CFLAGS="$oldCFLAGS"

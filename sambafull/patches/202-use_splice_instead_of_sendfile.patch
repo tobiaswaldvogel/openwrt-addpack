@@ -1,0 +1,19 @@
+--- samba-3.6.1/source3/lib/sendfile.c.orig	2011-11-16 23:45:53.830444810 +0100
++++ samba-3.6.1/source3/lib/sendfile.c	2011-11-16 23:46:59.000000000 +0100
+@@ -28,6 +28,7 @@
+ #if defined(LINUX_SENDFILE_API)
+ 
+ #include <sys/sendfile.h>
++#include "system/filesys.h"
+ 
+ #ifndef MSG_MORE
+ #define MSG_MORE 0x8000
+@@ -59,7 +60,7 @@
+ 		ssize_t nwritten;
+ 		do {
+ #if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_OFF64_T) && defined(HAVE_SENDFILE64)
+-			nwritten = sendfile64(tofd, fromfd, &offset, total);
++			nwritten = splice(fromfd, &offset, tofd, NULL, total, SPLICE_F_MORE|SPLICE_F_MOVE);
+ #else
+ 			nwritten = sendfile(tofd, fromfd, &offset, total);
+ #endif

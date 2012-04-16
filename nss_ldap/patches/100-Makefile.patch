@@ -1,0 +1,20 @@
+--- nss_ldap-265/Makefile.am.orig	2011-10-31 18:22:45.774149250 +0100
++++ nss_ldap-265/Makefile.am	2011-10-31 18:23:00.599250608 +0100
+@@ -109,5 +109,5 @@
+ 	@$(NORMAL_UNINSTALL)
+ 
+ vers.c: $(top_srcdir)/CVSVersionInfo.txt
+-	CVSVERSIONDIR=$(top_srcdir) vers_string -v
++	CVSVERSIONDIR=$(top_srcdir) $(top_srcdir)/vers_string -v
+ 
+--- nss_ldap-265/Makefile.in.orig	2011-10-31 18:25:16.278506453 +0100
++++ nss_ldap-265/Makefile.in	2011-10-31 18:25:34.280330762 +0100
+@@ -703,7 +703,7 @@
+ 	@$(NORMAL_UNINSTALL)
+ 
+ vers.c: $(top_srcdir)/CVSVersionInfo.txt
+-	CVSVERSIONDIR=$(top_srcdir) vers_string -v
++	CVSVERSIONDIR=$(top_srcdir) $(top_srcdir)/vers_string -v
+ # Tell versions [3.59,3.63) of GNU make to not export all variables.
+ # Otherwise a system limit (for SysV at least) may be exceeded.
+ .NOEXPORT:
