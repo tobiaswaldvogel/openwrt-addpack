@@ -13,7 +13,7 @@ PKG_RELEASE:=1
 include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/rtc-gemini
-  SUBMENU:=$(OTHER_MENU)
+  SUBMENU:=Other modules
   TITLE:=Gemini RTC driver
   KCONFIG:=CONFIG_RTC_DRV_GEMINI
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-gemini.ko

@@ -14,7 +14,6 @@ include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/pata-gemini
   SUBMENU:=Block Devices
-  DEPENDS:=
   KCONFIG:=CONFIG_PATA_GEMINI
   TITLE:=PATA driver for gemini SoC
   FILES:=$(LINUX_DIR)/drivers/ata/pata_gemini.ko
