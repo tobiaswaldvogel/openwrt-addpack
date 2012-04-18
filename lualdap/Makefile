@@ -22,6 +22,7 @@ define Package/lualdap
   CATEGORY:=Languages
   TITLE:=LUA LDAP Library
   URL:=http://www.padl.com
+  DEPENDS:=+libopenldap lua
 endef
 
 define Package/lualdap/description

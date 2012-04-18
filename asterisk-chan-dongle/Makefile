@@ -23,6 +23,7 @@ define Package/asterisk18-chan-dongle
   CATEGORY:=Network
   TITLE:=dongle channel provider for asterisk
   URL:=http://wiki.e1550.mobi/doku.php?id=installation#install_chan_dongle
+  DEPENDS:=asterisk18
 endef
 
 define Package/asterisk18-chan-dongle/description
