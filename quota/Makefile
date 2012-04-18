@@ -26,13 +26,13 @@ define Package/quota
   CATEGORY:=Utilities
   TITLE:=Tools and patches for the Linux Diskquota system
   URL:=http://linuxquota.sourceforge.net/
+  DEPENDS:=+libext2fs
 endef
 
 define Package/quota/description
 	Tools and patches for the Linux Diskquota system
 endef
 
-#TARGET_CFLAGS += $(FPIC)
 CONFIGURE_ARGS += \
 	--prefix=$(PKG_INSTALL_DIR) \
 	--enable-strip-binaries=no \
@@ -40,9 +40,7 @@ CONFIGURE_ARGS += \
 	--mandir=$(PKG_INSTALL_DIR)/usr/man
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/tirpc
-EXTRA_LDFLAGS += -ltirpc -L$(PKG_BUILD_DIR)
-
-#MAKE_PATH = ./src
+EXTRA_LDFLAGS += -ltirpc -lext2fs -L$(PKG_BUILD_DIR)
 
 #define Build/InstallDev
 #	$(INSTALL_DIR) $(1)/usr/include
