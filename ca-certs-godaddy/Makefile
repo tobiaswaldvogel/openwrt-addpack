@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=ca-certs-godaddy 
+PKG_NAME:=ca-certs-godaddy
 PKG_VERSION=1.0
 PKG_RELEASE:=1
 
@@ -18,12 +18,6 @@ endef
 
 define Package/ca-certs-godaddy/description
   Root CA certificates for GoDaddy CA
-endef
-
-define Build/Prepare
-endef
-
-define Build/Configure
 endef
 
 define Build/Compile
