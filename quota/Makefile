@@ -40,7 +40,7 @@ CONFIGURE_ARGS += \
 	--mandir=$(PKG_INSTALL_DIR)/usr/man
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/tirpc
-EXTRA_LDFLAGS += -ltirpc -lext2fs -L$(PKG_BUILD_DIR)
+EXTRA_LDFLAGS += -ltirpc -lext2fs -lcom_err -L$(PKG_BUILD_DIR)
 
 #define Build/InstallDev
 #	$(INSTALL_DIR) $(1)/usr/include

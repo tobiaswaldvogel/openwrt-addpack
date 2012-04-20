@@ -159,14 +159,8 @@ endef
 
 define Package/sambafull-client/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/smbclient $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/nmblookup $(1)/usr/bin
-endef
-
-define Package/sambafull-scan/install
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) ./files/scan $(1)/usr/bin
-	$(INSTALL_BIN) ./files/unscan $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/source3/bin/smbclient $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/source3/bin/nmblookup $(1)/usr/bin
 endef
 
 $(eval $(call BuildPackage,sambafull))
