@@ -1,0 +1,11 @@
+--- acl-2.2.51/include/buildmacros.orig	2012-04-20 23:47:50.296283399 +0200
++++ acl-2.2.51/include/buildmacros	2012-04-20 23:48:07.915185073 +0200
+@@ -42,7 +42,7 @@
+ 
+ INSTALL	= $(TOPDIR)/include/install-sh -o $(PKG_USER) -g $(PKG_GROUP)
+ 
+-SHELL = /bin/sh
++SHELL = /bin/bash
+ IMAGES_DIR = $(TOPDIR)/all-images
+ DIST_DIR = $(TOPDIR)/dist
+ 
