@@ -35,7 +35,13 @@ define Package/eglibc-locale-de-utf8
   TITLE:=Locale de_DE.utf8 for eglibc
 endef
 
-HOST_CONFIGURE_VARS += --with-glibc=$(EGLIBC_SOURCE_DIR)/libc
+HOST_CONFIGURE_VARS = \
+        CC="$(HOSTCC)" \
+        CFLAGS="-O2" \
+        CPPFLAGS="" \
+        LDFLAGS="$(HOST_LDFLAGS)" \
+        SHELL="$(BASH)" \
+	--with-glibc=$(EGLIBC_SOURCE_DIR)/libc
 
 define Host/Prepare
 	mkdir -p $(HOST_BUILD_DIR)
@@ -44,7 +50,8 @@ endef
 
 define Host/Install
 	$(INSTALL_DIR) $(STAGING_DIR_HOST)/usr/bin
-	$(CP) $(HOST_BUILD_DIR)/localedef $(STAGING_DIR_HOST)/usr/bin	
+	$(CP) $(HOST_BUILD_DIR)/localedef $(STAGING_DIR_HOST)/usr/bin
+	$(INSTALL_DIR) $(STAGING_DIR_HOST)/lib/locale
 endef
 
 define Build/Prepare
