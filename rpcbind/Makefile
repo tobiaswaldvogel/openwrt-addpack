@@ -25,6 +25,7 @@ define Package/rpcbind
   CATEGORY:=Network
   TITLE:=Converts RPC program numbers into universal addresses
   URL:=http://rpcbind.sourceforge.net/
+  DEPENDS:=+libtirpc
 endef
 
 define Package/rpcbind/description

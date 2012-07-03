@@ -25,6 +25,7 @@ define Package/libvmime
   CATEGORY:=Libraries
   TITLE:=libvmime
   URL:=http://www.zarafa.com
+  DEPENDS:=+libstdcpp
 endef
 
 define Package/libvmime/description

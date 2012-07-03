@@ -4,36 +4,11 @@ LuCI Spindown
 
 ]]--
 
+require "luci.fs"
+
 m = Map("hd-idle", translate("hd-idle_title"), translate("hd-idle_desc"))
 
-function getpwrstate(dev)
-	local hdparm = luci.util.execl("hdparm -C " .. dev)
-
-	for i,line in ipairs(hdparm) do
-		local pos = line:find("drive state is:")
-
-		if pos then
-			return "hd-idle_" .. line:sub(pos + 15):gsub("^%s*([a-z]*)(.-)%s*$", "%1")
-		end
-	end
-
-	return translate("hd-idle_unknown")
-end
-
-local fs = require "luci.fs"
-local devices = {}
-luci.util.update(devices, fs.glob("/dev/sd?") or {})
-
-v = m:section(Table, devices, translate("hd-idle_pwr_state"))
-disk = v:option(DummyValue, "Disk", translate("hd-idle_disk"))
-function disk.cfgvalue(self, section)
-	return devices[section]:sub(6)
-end
-
-state = v:option(DummyValue, "Power state", translate("hd-idle_pwr_state"))
-function state.cfgvalue(self, section)
-	return translate(getpwrstate(devices[section]))
-end
+m:section(SimpleSection).template = "hd/disc_power_status"
 
 s = m:section(TypedSection, "hd-idle", translate("hd-idle_settings"))
 s.addremove = true

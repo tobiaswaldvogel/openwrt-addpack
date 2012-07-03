@@ -23,6 +23,7 @@ define Package/gptfdisk
   SUBMENU:=disc
   TITLE:=Partition table manipulation utility with GPT support
   URL:=http://www.rodsbooks.com/gdisk
+  DEPENDS:=+libstdcpp
 endef
 
 define Package/gptfdisk/description

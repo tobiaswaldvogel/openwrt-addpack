@@ -7,30 +7,11 @@ LuCI hdmon
 m = Map("hd-mon", translate("hdmon"), translate("hdmon_desc"))
 
 local fs = require "luci.fs"
+local devices = {}
+luci.util.update(devices, fs.glob("/dev/sd?") or {})
 
-if luci.fs.access("/proc/mdstat") then 
-	local mdstat =  luci.util.execl("cat /proc/mdstat")
-	local raiddevs = {}
-	local raidstates = {}
-
-	for i,line in ipairs(mdstat) do
-		if line:sub(5,5) == ":" then
-			table.insert(raiddevs, line:sub(1,3))
-			table.insert(raidstates, line:sub(7))
-		end
-	end
-
-	v = m:section(Table, raiddevs, translate("raid_arrays"))
-	raiddev = v:option(DummyValue, "raiddev", translate("raiddev"))
-	function raiddev.cfgvalue(self, section)
-		return raiddevs[section]
-	end
-
-	raidstate = v:option(DummyValue, "raidstate", translate("raidstate"))
-	function raidstate.cfgvalue(self, section)
-		return raidstates[section]
-	end
-end
+m:section(SimpleSection).template = "hd/raid_status"
+m:section(SimpleSection).template = "hd/disc_temp_status"
 
 s = m:section(TypedSection, "raid", translate("raid"))
 s.anonymous = true
@@ -42,9 +23,14 @@ s.addremove = true
 s:option(Flag, "enabled", translate("enable_mon"))
 disk = s:option(Value, "disk", translate("disk"))
 disk.rmempty = fales
-for _, dev in ipairs(luci.fs.glob("/dev/ide/host1/bus0/target?/lun0/disc")) do
+for _, dev in ipairs(devices) do
 	disk:value(dev)
 end
+
+temp_info = s:option(Value, "temp_info", translate("Threshold for temperature info"))
+temp_info.default = "40"
+temp_warn = s:option(Value, "temp_warn", translate("Threshold for temperature warning"))
+temp_warn.default = "45"
 
 s = m:section(TypedSection, "hdmon", translate("monreceiver"))
 s.anonymous = true

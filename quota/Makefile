@@ -26,7 +26,7 @@ define Package/quota
   CATEGORY:=Utilities
   TITLE:=Tools and patches for the Linux Diskquota system
   URL:=http://linuxquota.sourceforge.net/
-  DEPENDS:=+libext2fs
+  DEPENDS:=+libwrap +libext2fs +libcom_err $(LIBRPC_DEPENDS)
 endef
 
 define Package/quota/description
@@ -39,8 +39,11 @@ CONFIGURE_ARGS += \
 	--sysconfdir=$(PKG_INSTALL_DIR)/etc \
 	--mandir=$(PKG_INSTALL_DIR)/usr/man
 
-TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/tirpc
-EXTRA_LDFLAGS += -ltirpc -lext2fs -lcom_err -L$(PKG_BUILD_DIR)
+TARGET_CFLAGS += $(LIBRPC_INCLUDE)
+EXTRA_LDFLAGS += $(LIBRPC) -lext2fs $(STAGING_DIR)/usr/lib/libcom_err.so.2 -L$(PKG_BUILD_DIR)
+MAKE_FLAGS += \
+	RPCGEN_PATH=$(STAGING_DIR_HOST)/bin/rpcgen \
+        RPCGEN=$(STAGING_DIR_HOST)/bin/rpcgen
 
 #define Build/InstallDev
 #	$(INSTALL_DIR) $(1)/usr/include

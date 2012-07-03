@@ -25,8 +25,10 @@ smart_mon() {
 
 	config_get "disk" "$section" "disk"
 	config_get_bool "enabled" "$section" "enabled" '0'
+	config_get "temp_info" "$section" "temp_info" '0'
+	config_get "temp_warn" "$section" "temp_warn" '0'
 	[ "$test" -ne 0 ] && testcmd="-M test "
-	[ "$enabled" -ne "0" ] && echo $disk -n standby,q -H -l error -m $email -M exec /tmp/smartd.mail $testcmd >>/tmp/smartd.conf	
+	[ "$enabled" -ne "0" ] && echo $disk -n standby,q -H -l error -W 0,$temp_info,$temp_warn -m $email -M exec /tmp/smartd.mail $testcmd >>/tmp/smartd.conf	
 }
 
 ssmtp() {
