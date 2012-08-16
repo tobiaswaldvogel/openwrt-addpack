@@ -1,0 +1,11 @@
+--- a/Makefile.in	2012-07-21 20:42:56.682320980 +0200
++++ b/Makefile.in	2012-07-21 20:43:09.373147923 +0200
+@@ -195,7 +195,7 @@
+ program_transform_name = @program_transform_name@
+ sbindir = @sbindir@
+ sharedstatedir = @sharedstatedir@
+-sysconfdir = @sysconfdir@
++sysconfdir = /var/etc
+ target = @target@
+ target_alias = @target_alias@
+ target_cpu = @target_cpu@

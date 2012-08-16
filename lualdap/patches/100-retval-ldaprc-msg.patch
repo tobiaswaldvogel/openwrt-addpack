@@ -1,0 +1,223 @@
+--- lualdap-1.1.0/src/lualdap.c.orig	2012-07-06 21:34:51.425067750 +0200
++++ lualdap-1.1.0/src/lualdap.c	2012-07-07 01:06:42.336060451 +0200
+@@ -390,67 +390,57 @@
+ ** Get the result message of an operation.
+ ** #1 upvalue == connection
+ ** #2 upvalue == msgid
+-** #3 upvalue == result code of the message (ADD, DEL etc.) to be received.
+ */
+-static int result_message (lua_State *L) {
++static int result_message (lua_State *L, ldap_int_t rc, conn_data *conn, ldap_int_t msgid) {
+ 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
+-	LDAPMessage *res;
+-	int rc;
+-	conn_data *conn = (conn_data *)lua_touserdata (L, lua_upvalueindex (1));
+-	int msgid = (int)lua_tonumber (L, lua_upvalueindex (2));
+-	/*int res_code = (int)lua_tonumber (L, lua_upvalueindex (3));*/
++	LDAPMessage *res = NULL;
++	int err, num;
++	char *mdn = NULL;
++	char *msg = NULL;
++
++	if (rc != LDAP_SUCCESS) {
++		err = rc;
++		goto exit;
++	}
+ 
+-	luaL_argcheck (L, conn->ld, 1, LUALDAP_PREFIX"LDAP connection is closed");
+ 	rc = ldap_result (conn->ld, msgid, LDAP_MSG_ONE, timeout, &res);
+-	if (rc == 0)
+-		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
+-	else if (rc < 0) {
++	if (rc == 0) {
++		err = LDAP_TIMEOUT;
++		goto exit;
++	}
++	if (rc <= 0) {
++		err = LDAP_NO_RESULTS_RETURNED;
++		goto exit;
++	}
++
++	rc = ldap_parse_result (conn->ld, res, &err, &mdn, &msg, NULL, NULL, 0);
++	if (rc != LDAP_SUCCESS)
++		err =  LDAP_NO_RESULTS_RETURNED;
++	
++exit:
++	num = 2;
++	lua_pushnumber(L, err);
++	lua_pushstring(L, ldap_err2string (err));
++	
++
++	if (res)
+ 		ldap_msgfree (res);
+-		return faildirect (L, LUALDAP_PREFIX"result error");
+-	} else {
+-		int err, ret = 1;
+-		char *mdn, *msg;
+-		rc = ldap_parse_result (conn->ld, res, &err, &mdn, &msg, NULL, NULL, 1);
+-		if (rc != LDAP_SUCCESS)
+-			return faildirect (L, ldap_err2string (rc));
+-		switch (err) {
+-			case LDAP_SUCCESS:
+-			case LDAP_COMPARE_TRUE:
+-				lua_pushboolean (L, 1);
+-				break;
+-			case LDAP_COMPARE_FALSE:
+-				lua_pushboolean (L, 0);
+-				break;
+-			default:
+-				lua_pushnil (L);
+-				lua_pushliteral (L, LUALDAP_PREFIX);
+-				lua_pushstring (L, msg);
+-				lua_pushliteral (L, " ");
+-				lua_pushstring (L, ldap_err2string(err));
+-				lua_concat (L, 4);
+-				ret = 2;
+-		}
+-		ldap_memfree (mdn);
+-		ldap_memfree (msg);
+-		return ret;
++
++	if (msg) {
++		lua_pushstring(L, msg);
++		ldap_memfree(msg);
++		num++;
+ 	}
+-}
+ 
++	if (mdn) {
++		lua_pushstring(L, mdn);
++		ldap_memfree(mdn);
++		num++;
++	}
+ 
+-/*
+-** Push a function to process the LDAP result.
+-*/
+-static int create_future (lua_State *L, ldap_int_t rc, int conn, ldap_int_t msgid, int code) {
+-	if (rc != LDAP_SUCCESS)
+-		return faildirect (L, ldap_err2string (rc));
+-	lua_pushvalue (L, conn); /* push connection as #1 upvalue */
+-	lua_pushnumber (L, msgid); /* push msgid as #2 upvalue */
+-	lua_pushnumber (L, code); /* push code as #3 upvalue */
+-	lua_pushcclosure (L, result_message, 3);
+-	return 1;
++	return num;
+ }
+ 
+-
+ /*
+ ** Unbind from the directory.
+ ** @param #1 LDAP connection.
+@@ -485,7 +475,7 @@
+ 		A_tab2mod (L, &attrs, 3, LUALDAP_MOD_ADD);
+ 	A_lastattr (L, &attrs);
+ 	rc = ldap_add_ext (conn->ld, dn, attrs.attrs, NULL, NULL, &msgid);
+-	return create_future (L, rc, 1, msgid, LDAP_RES_ADD);
++	return result_message(L, rc, conn, msgid);
+ }
+ 
+ 
+@@ -506,7 +496,7 @@
+ 	bvalue.bv_val = (char *)luaL_checkstring (L, 4);
+ 	bvalue.bv_len = lua_strlen (L, 4);
+ 	rc = ldap_compare_ext (conn->ld, dn, attr, &bvalue, NULL, NULL, &msgid);
+-	return create_future (L, rc, 1, msgid, LDAP_RES_COMPARE);
++	return result_message(L, rc, conn, msgid);
+ }
+ 
+ 
+@@ -521,7 +511,7 @@
+ 	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
+ 	ldap_int_t rc, msgid;
+ 	rc = ldap_delete_ext (conn->ld, dn, NULL, NULL, &msgid);
+-	return create_future (L, rc, 1, msgid, LDAP_RES_DELETE);
++	return result_message(L, rc, conn, msgid);
+ }
+ 
+ 
+@@ -571,7 +561,7 @@
+ 	}
+ 	A_lastattr (L, &attrs);
+ 	rc = ldap_modify_ext (conn->ld, dn, attrs.attrs, NULL, NULL, &msgid);
+-	return create_future (L, rc, 1, msgid, LDAP_RES_MODIFY);
++	return result_message(L, rc, conn, msgid);
+ }
+ 
+ 
+@@ -586,7 +576,7 @@
+ 	const int del = luaL_optnumber (L, 5, 0);
+ 	ldap_int_t msgid;
+ 	ldap_int_t rc = ldap_rename (conn->ld, dn, rdn, par, del, NULL, NULL, &msgid);
+-	return create_future (L, rc, 1, msgid, LDAP_RES_MODDN);
++	return result_message(L, rc, conn, msgid);
+ }
+ 
+ 
+@@ -927,43 +917,38 @@
+ 
+ /*
+ ** Open and initialize a connection to a server.
+-** @param #1 String with hostname.
++** @param #1 String with uri.
+ ** @param #2 String with username.
+ ** @param #3 String with password.
+-** @param #4 Boolean indicating if TLS must be used.
+ ** @return #1 Userdata with connection structure.
+ */
+ static int lualdap_open_simple (lua_State *L) {
+-	ldap_pchar_t host = (ldap_pchar_t) luaL_checkstring (L, 1);
+-	ldap_pchar_t who = (ldap_pchar_t) luaL_optstring (L, 2, NULL);
++	ldap_pchar_t uri = (ldap_pchar_t) luaL_checkstring (L, 1);
++	ldap_pchar_t user = (ldap_pchar_t) luaL_optstring (L, 2, NULL);
+ 	const char *password = luaL_optstring (L, 3, NULL);
+-	int use_tls = lua_toboolean (L, 4);
+-	conn_data *conn = (conn_data *)lua_newuserdata (L, sizeof(conn_data));
+-	int err;
++	conn_data conn, *retval;
++	int rc;
+ 
+ 	/* Initialize */
+-	lualdap_setmeta (L, LUALDAP_CONNECTION_METATABLE);
+-	conn->version = 0;
+-	conn->ld = ldap_init (host, LDAP_PORT);
+-	if (conn->ld == NULL)
+-		return faildirect(L,LUALDAP_PREFIX"Error connecting to server");
+-	/* Set protocol version */
+-	conn->version = LDAP_VERSION3;
+-	if (ldap_set_option (conn->ld, LDAP_OPT_PROTOCOL_VERSION, &conn->version)
+-		!= LDAP_OPT_SUCCESS)
+-		return faildirect(L, LUALDAP_PREFIX"Error setting LDAP version");
+-	/* Use TLS */
+-	if (use_tls) {
+-		int rc = ldap_start_tls_s (conn->ld, NULL, NULL);
+-		if (rc != LDAP_SUCCESS)
+-			return faildirect (L, ldap_err2string (rc));
+-	}
+-	/* Bind to a server */
+-	err = ldap_bind_s (conn->ld, who, password, LDAP_AUTH_SIMPLE);
+-	if (err != LDAP_SUCCESS)
+-		return faildirect (L, ldap_err2string (err));
++	conn.version = 0;
++	rc = ldap_initialize(&(conn.ld), uri);
++	if (rc != LDAP_SUCCESS)
++		goto exit;
+ 
+-	return 1;
++	/* Set protocol version */
++	conn.version = LDAP_VERSION3;
++	rc = ldap_set_option (conn.ld, LDAP_OPT_PROTOCOL_VERSION, &conn.version);
++	if (rc != LDAP_OPT_SUCCESS)
++		goto exit;
++
++	rc = ldap_bind_s (conn.ld, user, password, LDAP_AUTH_SIMPLE);
++exit:
++	lua_pushnumber(L, rc);
++	lua_pushstring(L, ldap_err2string (rc));
++	retval = (conn_data *)lua_newuserdata (L, sizeof(conn_data));
++	lualdap_setmeta (L, LUALDAP_CONNECTION_METATABLE);
++	memcpy(retval, &conn, sizeof(conn_data)); 
++	return 3;
+ }
+ 
+ 

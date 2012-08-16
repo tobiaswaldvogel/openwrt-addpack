@@ -1,0 +1,39 @@
+<%-
+function disc_power_status(callback)
+	local devices = {}
+
+	luci.util.update(devices, luci.fs.glob("/dev/sd?") or {})
+
+	for _,dev in ipairs(devices) do
+		local discstat = luci.util.execl("hdparm -C " .. dev)
+
+		for _,line in ipairs(discstat) do
+			local pos = line:find("drive state is:")
+
+			if pos then
+		                local disc = {
+                		        name = dev:sub(6),
+		                        state = translate("hd-idle_" .. line:sub(pos + 15):gsub("^%s*([a-z]*)(.-)%s*$", "%1"))
+                		}
+		                callback(disc)
+			end
+		end
+	end
+end
+-%>
+
+<fieldset class="cbi-section">
+	<legend><%:hd-idle_pwr_state%></legend>
+	<table class="cbi-section-table" id="disc_status_table">
+		<tr class="cbi-section-table-titles">
+			<th class="cbi-section-table-cell" width="20%"><%:hd-idle_disk%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:hd-idle_pwr_state%></th>
+		</tr>
+		<% local style=true; disc_power_status(function(disc) %>
+		<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+			<td class="cbi-value-field"><%=disc.name%></td>
+			<td class="cbi-value-field"><%=disc.state%></td>
+		</tr>
+		<% style = not style; end) %>
+	</table>
+</fieldset>

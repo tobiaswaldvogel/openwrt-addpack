@@ -14,11 +14,11 @@ define Package/luci-app-hd-idle2
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   DEPENDS:=+hdparm +hd-idle2
-  TITLE:=LuCI - HD Spindown package based on hd-idle
+  TITLE:=HD Spindown package based on hd-idle
 endef
 
 define Package/luci-app-hd-idle2/description
- LuCI - Spindown package for internal discs on NAS device based on hd-idle
+ Spindown package for internal discs on NAS device based on hd-idle
 endef
 
 define Build/Prepare

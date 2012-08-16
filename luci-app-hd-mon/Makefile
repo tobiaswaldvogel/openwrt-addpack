@@ -15,11 +15,11 @@ define Package/luci-app-hd-mon
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   DEPENDS:=+smartd +mdadm +ssmtp
-  TITLE:=LuCI - RAID and SMART monitoring and email notification
+  TITLE:=RAID and SMART monitoring and email notification
 endef
 
 define Package/luci-app-hd-mon/description
- LuCI - RAID and SMART monitoring and email notification
+ RAID and SMART monitoring and email notification
 endef
 
 define Build/Prepare

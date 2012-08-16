@@ -1,0 +1,224 @@
+<%-
+	require "bit"
+	require "luci.sys"
+	require "luci.tools.webadmin"
+	require "nixio.fs"
+	require "luci.controller.idm"
+
+	local style = true
+-%>
+
+<%+header%>
+
+<form name="idm" method="post" action="<%=REQUEST_URI%>">
+	<input type="hidden" id="act" name="act" value="none" />
+	<input type="hidden" id="obj" name="obj" value="<%=obj%>" />
+	<div class="cbi-map" id="cbi-group">
+		<fieldset class="cbi-section" id="cbi-table-table">
+			<div class="cbi-section-node">
+				<table class="cbi-section-table">
+					<tr class="cbi-section-table-titles">
+						<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:Group%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 40%"><%:Description%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 15%"><%:GID%></th>
+						<th class="cbi-section-table-cell" style="width: 25%"></th>
+					</tr>
+					<% style = nil; newgid = 1000; luci.controller.idm.grouplist(function(grp) %>
+					<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+						<td class="cbi-value-field" style="text-align:left">
+							<div style="text-indent: 17px;background: url('<%=resource%>/cbi/group.gif')no-repeat scroll 1px center;"><%=grp.cn%></div>
+						</td>
+						<% if (act == "none") or not (obj == grp.dn) then %>
+						<td class="cbi-value-field" style="text-align:left"><%=grp.desc%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=grp.gid%></td>
+						<% else %>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="desc" value="<%=grp.desc%>" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="gid"  value="<%=grp.gid%>"  /></td>
+						<% end %>
+						<td class="cbi-value-field" style="text-align:right">
+							<% if act == "none" then %>
+							<input type="image" src="<%=resource%>/cbi/edit.gif" 
+								onclick="document.getElementById('act').value='grpmod';document.getElementById('obj').value='<%=grp.dn%>'" />
+							<input type="image" src="<%=resource%>/cbi/remove.gif"
+								onclick="ret=window.confirm('<%:Are you sure?%>');if(ret){document.getElementById('act').value='grprm';document.getElementById('obj').value='<%=grp.dn%>'};return ret" />
+							<% end %>
+						</td>
+					</tr>
+					<% style = not style; if newgid <= grp.gid then newgid = grp.gid + 1 end; end) %>
+					<% if act == "grpadd" then %>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left">
+							<input class="cbi-input-text" type="text" name="cn" value="" style="text-indent: 17px;background: url('<%=resource%>/cbi/group.gif')no-repeat scroll 1px center;" />
+						</td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="desc" value="" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="gid"  value="<%=newgid%>"  /></td>
+					</tr>
+					<% end %>
+					<% if act == "grpadd" or act == "grpmod" then %>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left">
+							<input class="cbi-button cbi-button-save" type="submit" value="<%:Save%>"
+								onclick="document.getElementById('act').value='<%=act%>ok'" />
+							<input class="cbi-button cbi-button-reset" type="submit" value="<%:Cancel%>"
+								onclick="document.getElementById('act').value='none'" />
+						</td>
+					</tr>
+					<% end %>
+					<% if act == "none" then %>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left">
+							<input class="cbi-button cbi-button-add" type="submit" value="<%:Add%>"
+								onclick="document.getElementById('act').value='grpadd'" />
+						</td>
+					</tr>
+					<% end %>
+				</table>
+			</div>
+		</fieldset>
+	</div>
+	<div class="cbi-map" id="cbi-user">
+		<fieldset class="cbi-section" id="cbi-table-table">
+			<div class="cbi-section-node">
+				<table class="cbi-section-table">
+					<tr class="cbi-section-table-titles">
+						<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:User%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 15%"><%:Given name%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 15%"><%:Last name%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 10%"><%:UID%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 15%"><%:Group%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:Kerberos principal%></th>
+						<th class="cbi-section-table-cell" style="width: 5%"></th>
+					</tr>
+					<% style = nil; newuid = 1000; newgid = 1000; luci.controller.idm.userlist(function(usr) %>
+					<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+						<td class="cbi-value-field" style="text-align:left">
+							<div style="text-indent: 17px;background: url('<%=resource%>/cbi/user.gif')no-repeat scroll 1px center;"><%=usr.uid%></div>
+						</td>
+						<%if (act == "none") or not (obj == usr.dn) then%>
+						<td class="cbi-value-field" style="text-align:left"><%=usr.gn%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=usr.sn%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=usr.uidn%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=usr.groups[usr.gid] or usr.gid%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=usr.kpn%></td>
+						<td class="cbi-value-field" style="text-align:right">
+						<%if act == "none" then%>
+							<input type="image" src="<%=resource%>/cbi/edit.gif" 
+								onclick="document.getElementById('act').value='usrmod';document.getElementById('obj').value='<%=usr.dn%>'" />
+							<input type="image" src="<%=resource%>/cbi/remove.gif"
+								onclick="ret=window.confirm('<%:Are you sure?%>');if(ret){document.getElementById('act').value='usrrm';document.getElementById('obj').value='<%=usr.dn%>'};return ret" />
+							<%end%>
+						</td>
+						<%else%>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="gn" value="<%=usr.gn%>" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="sn" value="<%=usr.sn%>" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="uidn" value="<%=usr.uidn%>" /></td>
+						<td class="cbi-value-field" style="text-align:left"><select class="cbi-input-select" name="gid">"
+						<%for gid,desc in pairs(usr.groups) do%>
+							<%if usr.gid == gid then selected=true %>
+								<option selected="selected" value="<%=gid%>"><%=desc%></option>
+							<%else%>
+								<option value="<%=gid%>"><%=desc%></option>
+							<%end%>
+						<%end%>
+						<%if not selected then%>
+							<option selected="selected" value="<%=usr.gid%>"><%=usr.gid%></option>
+						<%end%>
+						</select></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="kpn" value="<%=usr.kpn%>" /></td>
+						<td class="cbi-value-field"></td>
+					</tr>
+					<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+						<td class="cbi-value-field" style="text-align:right"><%:Password%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-password" type="password" name="pw" value="" /></td>
+						<td class="cbi-value-field" style="text-align:right"><%:Home dir%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="homedir" value="<%=usr.homedir%>" /></td>
+						<td class="cbi-value-field" style="text-align:right"><%:Shell%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="shell" value="<%=usr.shell%>" /></td>
+						<% end %>
+					</tr>
+					<% style = not style; if newuid <= usr.uidn then newuid = usr.uidn + 1 end; newgid = usr.gid; end) %>
+
+
+					<% if act == "usradd" then %>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-user" type="text" name="uid" value="" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="gn" value="" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="sn" value="" /></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="uidn" value="<%=newuid%>" /></td>
+						<td class="cbi-value-field" style="text-align:left"><select class="cbi-input-select" name="gid">"
+						<% luci.controller.idm.grouplist(function(grp) %>
+						<%desc=grp.desc .. " (" .. grp.gid .. ")"; if grp.gid == newgid then selected=true %>
+								<option selected="selected" value="<%=grp.gid%>"><%=desc%></option>
+							<%else%>
+								<option value="<%=grp.gid%>"><%=desc%></option>
+							<%end%>
+						<% end) %>
+						<%if not selected then%>
+							<option selected="selected" value="<%=newgid%>"><%=newgid%></option>
+						<%end%>
+						</select></td>
+						<td class="cbi-value-field"></td>
+						<td class="cbi-value-field"></td>
+					</tr>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:right"><%:Password%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-password" type="password" name="pw" value="" /></td>
+						<td class="cbi-value-field" style="text-align:right"><%:Home dir%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="homedir" value="/tmp" /></td>
+						<td class="cbi-value-field" style="text-align:right"><%:Shell%></td>
+						<td class="cbi-value-field" style="text-align:left"><input class="cbi-input-text" type="text" name="shell" value="/bin/false" /></td>
+					</tr>
+					<% end %>
+
+
+					<% if act == "usradd" or act == "usrmod" then -%>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left">
+							<input class="cbi-button cbi-button-save" type="submit" value="<%:Save%>"
+								onclick="document.getElementById('act').value='<%=act%>ok';document.getElementById('obj').value='<%=obj%>'" />
+							<input class="cbi-button cbi-button-reset" type="submit" value="<%:Cancel%>"
+								onclick="document.getElementById('act').value='none'" />
+						</td>
+					</tr>
+					<% end %>
+					<% if act == "none" then %>
+					<tr class="cbi-section-table-row">
+						<td class="cbi-value-field" style="text-align:left">
+							<input class="cbi-button cbi-button-add" type="submit" value="<%:Add%>"
+								onclick="document.getElementById('act').value='usradd'" />
+						</td>
+					</tr>
+					<% end %>
+				</table>
+			</div>
+		</fieldset>
+	</div>
+	<div class="cbi-map" id="cbi-host">
+		<fieldset class="cbi-section" id="cbi-table-table">
+			<div class="cbi-section-node">
+				<table class="cbi-section-table">
+					<tr class="cbi-section-table-titles">
+						<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:Computer%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 30%"><%:Description%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 10%"><%:UID%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 15%"><%:Group%></th>
+						<th class="cbi-section-table-cell" style="text-align:left; width: 25%"><%:Kerberos principal%></th>
+					</tr>
+					<% style = nil; luci.controller.idm.hostlist(function(host) %>
+					<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+						<td class="cbi-value-field" style="text-align:left">
+							<div style="text-indent: 17px;background: url('<%=resource%>/cbi/server.gif')no-repeat scroll 1px center;"><%=host.uid%></div>
+						</td>
+						<td class="cbi-value-field" style="text-align:left"><%=host.desc%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=host.uidn%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=host.groups[host.gid] or host.gid%></td>
+						<td class="cbi-value-field" style="text-align:left"><%=host.kpn%></td>
+					</tr>
+					<% style = not style; end) %>
+				</table>
+			</div>
+		</fieldset>
+	</div>
+</form>
+
+<%+footer%>
