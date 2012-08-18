@@ -37,6 +37,8 @@ CONFIGURE_VARS += \
 	GSSGLUE_LIBS="-lkrb5 -lk5crypto -lcom_err -lkeyutils -lresolv -gssapi_krb5" \
 	GSSGLUE_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
 
+EXTRA_LDFLAGS := -lgssapi_krb5
+
 define Package/libtirpc/install
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libtirpc.so* $(1)/usr/lib

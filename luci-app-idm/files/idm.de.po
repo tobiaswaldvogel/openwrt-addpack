@@ -1,0 +1,60 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Identities"
+msgstr "Benutzer"
+
+msgid "User and Groups"
+msgstr "Benutzer und Gruppen"
+
+msgid "Initialize"
+msgstr "Initialisieren"
+
+msgid "Group"
+msgstr "Gruppe"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "GID"
+msgstr "Guppen ID"
+
+msgid "Are you sure?"
+msgstr "Wirklich löschen?"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Add"
+msgstr "Hinzufügen"
+
+msgid "User"
+msgstr "Benutzer"
+
+msgid "Given name"
+msgstr "Vorname"
+
+msgid "Last name"
+msgstr "Nachname"
+
+msgid "UID"
+msgstr "Benutzer ID"
+
+msgid "Kerberos principal"
+msgstr "Kerberos name"
+
+msgid "Password"
+msgstr "Passwort"
+
+msgid "Home Dir"
+msgstr "Home Dir"
+
+msgid "Shell"
+msgstr "Shell"
+
+msgid "Computer"
+msgstr "Computer"
+

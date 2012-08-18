@@ -1,63 +1,60 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-msgid "disk"
+msgid "Identities"
+msgstr "Benutzer"
+
+msgid
+
+msgid "Group"
 msgstr "Disk"
 
-msgid "email"
+msgid "Description"
 msgstr "Email address to notify"
 
-msgid "email_test"
+msgid "GID"
 msgstr "Send test mail"
 
-msgid "enable_mon"
+msgid "Are you sure?"
 msgstr "Enable monitoring"
 
-msgid "hdmon"
+msgid "Save"
 msgstr "Hard disk monitoring"
 
-msgid "hdmon_desc"
+msgid "Cancel"
 msgstr "Monitors disks and raid arrays and sends an email in case of failure."
 
-msgid "mailpwd"
+msgid "Add"
 msgstr "Password"
 
-msgid "mailsender"
+msgid "User"
 msgstr "Sender address"
 
-msgid "mailuser"
+msgid "Given name"
 msgstr "User ID"
 
-msgid "monreceiver"
+msgid "Last name"
 msgstr "Notify"
 
-msgid "monsender"
+msgid "UID"
 msgstr "Mail options"
 
-msgid "mx"
+msgid "Group"
 msgstr "Mail server"
 
-msgid "raid"
+msgid "Kerberos principal"
 msgstr "Raid arrays"
 
-msgid "raid_arrays"
+msgid "Password"
 msgstr "Raid Arrays"
 
-msgid "raid_en"
+msgid "Home Dir"
 msgstr "Monitor raid arrays"
 
-msgid "raiddev"
+msgid "Shell"
 msgstr "Raid device"
 
-msgid "raidstate"
+msgid "Computer"
 msgstr "Status"
 
-msgid "smart"
-msgstr "S.M.A.R.T."
-
-msgid "smart_en"
-msgstr "Monitor S.M.A.R.T. state"
-
-msgid "usetls"
-msgstr "Use TLS"
 

@@ -6,12 +6,13 @@ function disc_status(callback)
 	luci.util.update(devices, luci.fs.glob("/dev/sd?") or {})
 
 	for _,dev in ipairs(devices) do
-		local discstat = luci.util.execl("smartctl -A " .. dev)
+		local discstat = luci.util.execl("smartctl -A -f brief " .. dev)
 
 		for _,line in ipairs(discstat) do
 			if line:sub(1,3) == "194" then
-				for word in line:gmatch("%w+") do
+				for word in line:sub(62):gmatch("%w+") do
 					temperature = word
+					break
 				end
 		                local disc = {
                 		        name = dev:sub(6),

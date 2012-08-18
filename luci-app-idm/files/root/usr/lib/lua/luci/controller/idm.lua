@@ -14,13 +14,18 @@ function index()
 	local page
 	local refresh = nixio.fs.readfile("/var/run/idm_init_running")
 
+	luci.i18n.loadc("idm")
 	if nixio.fs.access("/var/run/ldapi") and not (refresh == "y") then
-		entry({"admin", "identities"}, alias("admin", "identities", "user"), _("Identities"), 80).index = true
+		menu = entry({"admin", "identities"}, alias("admin", "identities", "user"), _("Identities"), 80)
+		menu.i18n = "idm"
+		menu.index = true
 		page = entry({"admin", "identities", "user" }, call("action_user"), _("User and Groups"), 10)
 		page.i18n = "idm"
 		page.dependent = true
 	else
-		entry({"admin", "identities"},  alias("admin", "identities", "init"), _("Identities"), 80).index = true
+		menu = entry({"admin", "identities"},  alias("admin", "identities", "init"), _("Identities"), 80)
+		menu.i18n = "idm"
+		menu.index = true
 	end
 
 	page = entry({"admin", "identities", "init" }, call("action_init"), _("Initialize"), 20)
@@ -36,9 +41,7 @@ function action_user()
 	nixio.fs.writefile("/tmp/luadump", action .. "\n" .. object .. "\n")
 
 	if action == "none" then
-	elseif action == "grprm" then
-		objrm(object)
-	elseif action == "usrrm" then
+	elseif (action == "grprm") or (action == "usrrm") or (action == "hostrm") then
 		objrm(object)
 	elseif action == "grpmodok" then
 		grpmod(object, luci.http.formvalue("gid"), luci.http.formvalue("desc"))
@@ -54,6 +57,14 @@ function action_user()
 			luci.http.formvalue("sn"), luci.http.formvalue("uidn"),
 			luci.http.formvalue("gid"), luci.http.formvalue("pw"),
 			luci.http.formvalue("homedir"), luci.http.formvalue("shell"))
+	elseif action == "hostmodok" then
+		hostmod(object, luci.http.formvalue("desc"),
+			luci.http.formvalue("uidn"), luci.http.formvalue("gid"),
+			luci.http.formvalue("pw"), luci.http.formvalue("kpn"))
+	elseif action == "hostaddok" then
+		hostadd(luci.http.formvalue("uid"), luci.http.formvalue("desc"),
+			luci.http.formvalue("uidn"), luci.http.formvalue("gid"),
+			luci.http.formvalue("pw"))
 	else
 		luci.template.render("idm/idm_main", {act=action, obj=object})
 		return
@@ -125,8 +136,13 @@ function action_init()
 end
 
 function do_init(l, dns_domain, domain, basedn, ldappw)
-        local rc, msg, rdn, c
+	local rc, msg, rdn, c
+	local domainl = domain:lower()
+	local domainu = domain:upper()
 	local host = luci.sys.hostname():gsub("[\.].*", "")
+	local hostl = host:lower()
+	local hostu = host:upper()
+	local keytab  = "/etc/krb5.keytab"
 
 	dc = dns_domain:gsub("[\.](.*)", "")
 
@@ -155,64 +171,64 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("done\nConnecting ... ")
 	rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	l:write("Adding " .. basedn .. " ... ")
 	rc,msg = ld:add (basedn, { objectClass = { "dcObject", "organization" }, o = "root", dc = dc })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	groupou = "ou=Groups," .. basedn
 	l:write("Adding " .. groupou .. " ... ")
 	rc, msg = ld:add (groupou, { objectClass = "organizationalUnit" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	userou= "ou=Users," .. basedn
 	l:write("Adding " .. userou .. " ... ")
 	rc, msg = ld:add (userou, { objectClass = "organizationalUnit" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	compou = "ou=Computers," .. basedn
 	l:write("Adding " .. compou .. " ... ")
 	rc, msg = ld:add (compou, { objectClass = "organizationalUnit" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	srvuserou = ("ou=System Users," .. basedn)
 	l:write("Adding " .. srvuserou .. " ... ")
 	rc, msg = ld:add (srvuserou, { objectClass = "organizationalUnit" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	adm_dn = "cn=Manager," .. srvuserou
 	l:write("Adding " .. adm_dn .. " ... ")
 	rc, msg = ld:add (adm_dn, { objectClass = "inetOrgPerson", sn = "LDAP Manager" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 	l:write("Setting password ... ")
 	rc, msg = ld:modify(adm_dn, { '=', userPassword = luci.sys.exec("slappasswd -s " .. ldappw) })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	dn = "cn=users," .. groupou
 	l:write("Adding " .. dn .. " ... ")
 	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 1000, description = "Users" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	dn = "cn=computers," .. groupou
 	l:write("Adding " .. dn .. " ... ")
 	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 100, description = "Computers" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	krb_container_dn = "cn=Kerberos," .. basedn
 	l:write("Creating Kerberos Realm container " .. krb_container_dn ..  " ... ")
 	rc, msg = ld:add (krb_container_dn, { objectClass = "krbContainer" })
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
 	l:write("Configuring Kerberos ... ")
 	nixio.fs.writefile("/etc/config/krb5", "")
@@ -224,7 +240,6 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
         l:write("done\n")
 
 	initcmd = "kdb5_ldap_util -H ldapi:/// create -r " .. domain .. " -containerref \"" .. basedn .. "\" -s -P " .. rnd_pw(20)
-	l:write("Initializing Kerberos Realm " .. domain .. " with  " .. initcmd .. "\n")
 	l:write(luci.sys.exec(initcmd))
 
 	l:write("Starting Kerberos KDC ... ")
@@ -236,10 +251,33 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("done\n")
 
 	l:write("Creating machine account for " .. host .. " ... ")
-	rc,msg = hostadd(host, dns_domain, 100, 100, l)
+	rc,msg,host_dn = hostadd(host, host, 100, 100, nil)
 	l:write(msg .. "\n")
-	if not rc == 0 then return 1 end
+	if not (rc == 0) then return 1 end
 
+	l:write("Adding CIFS KPNs for " .. host .. " ... ")
+	ldap_kpn = "ldap/" .. hostl .. "." .. domainl .. "@" .. domain
+	rc, msg = ld:modify(host_dn, { '+', krbPrincipalName = { ldap_kpn,
+				"cifs/" .. hostl .. "." .. domainl .. "@" .. domain,
+				"cifs/" .. hostu .. "." .. domainl .. "@" .. domain,
+				"cifs/" .. hostl .. "." .. domainu .. "@" .. domain,
+				"cifs/" .. hostu .. "." .. domainu .. "@" .. domain,
+				"cifs/" .. hostl .. "@" .. domain,
+				"cifs/" .. hostu .. "@" .. domain
+			}})
+	l:write(msg .. "\n")
+	if not (rc == 0) then return 1 end
+	
+	l:write("Creating Kerberos keytab for " .. host .. " ... ")
+	os.execute("rm " .. keytab)
+	cmd = "kadmin.local -q \"ktadd -k " .. keytab .. " " .. ldap_kpn .. "\""
+	rc = os.execute(cmd)
+	if not (rc == 0) then
+		l:write("failed to execute: " .. cmd .. "\n")
+		return 1
+	end
+	l:write("Success\n")
+	
 	l:write("Restarting Samba ... ")
 	os.execute("/etc/init.d/samba restart")
 	l:write("done\n")
@@ -282,7 +320,7 @@ end
 function objrm(dn)
         rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-        if not rc == 0 then return end
+        if not (rc == 0) then return end
 
 	ld:delete(dn)	
 end
@@ -290,7 +328,7 @@ end
 function grpmod(dn, gid, desc)
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 	rc, msg = ld:modify(dn, { '=', gidNumber = gid, description = desc })
 end
 
@@ -298,7 +336,7 @@ function grpadd(cn, gid, desc)
         local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 	local ou = get_ou(ld, "Groups")
 
-        if not rc == 0 then return end
+        if not (rc == 0) then return end
 
         rc, msg = ld:add("cn=" .. cn .. "," .. ou, {
 		objectClass = { "top", "posixGroup" },
@@ -307,30 +345,13 @@ function grpadd(cn, gid, desc)
 	})
 end
 
-function changepw(ld, dn, kpn, uid, pw)
-	local rc, msg
-
-	--[[ Kerberos PW ]]--
-	luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
-
-	--[[ Samba pw ]]--
-	tmppwfile = "/tmp/userpw"
-	nixio.fs.writefile(tmppwfile, pw .. "\n" .. pw .. "\n")
-	smbpwadd = "smbpasswd -s -a " .. uid .. "<" .. tmppwfile
-	luci.sys.exec(smbpwadd)
-	nixio.fs.remove(tmppwfile)
-
-	 --[[ LDAP pw ]]--
-	rc, msg = ld:modify(dn, { '=', userPassword = luci.sys.exec("slappasswd -s " .. pw) })
-end
-
 function usrmod(dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 	rc, msg = ld:modify(dn, { '=',
-		givenName = gn or "",
-		sn = sn or "",
+		givenName = gn or " ",
+		sn = sn or " ",
 		uidNumber = uidn,
 		gidNumber = gid,
 		krbPrincipalName = kpn,
@@ -353,7 +374,7 @@ end
 function usradd(uid, gn, sn, uidn, gid, pw, homedir, shell)
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 
 	local ou = get_ou(ld, "Users")
 	local realm = get_realm(ld)
@@ -365,21 +386,48 @@ function usradd(uid, gn, sn, uidn, gid, pw, homedir, shell)
 	attrs.cn		= uid
 	attrs.uidNumber		= uidn
 	attrs.gidNumber		= gid
-	if gn and not (gn == "")  then attrs.givenName = gn end
+	if (not gn) or (gn == "") then gn = uid end
+	attrs.givenName		= gn
 	if (not sn) or (sn == "") then sn = uid end
 	attrs.sn		= sn
 	attrs.homeDirectory	= homedir
 	attrs.loginShell	= shell
 	attrs.krbPrincipalName	= kpn
 
-
 	rc,msg = ld:add (dn, attrs)
 	if (rc == 0) then
 		changepw(ld, dn, kpn, uid, pw)
 	end
+	return rc,msg,dn
 end
 
-function hostadd(host, domain, uidn, gid, l)
+function hostmod(dn, desc, uidn, gid, pw, kpn)
+	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
+	local attrs = {}
+
+	if not (rc == 0) then return rc,msg end
+
+	attrs.desc		= desc or ""
+	attrs.uidNumber	= uidn
+	attrs.gidNumber	= gid
+	if kpn and not (kpn == "") then attrs.krbPrincipalName = kpn end
+
+	rc, msg = ld:modify(dn, { '=', attrs })
+
+	if rc == 0 and pw and pw:len() > 0 then
+		if not kpn then
+			for dn, attrs in ld:search { attrs = { "krbPrincipalName" }, base = dn, scope="b" } do
+				kpn = attrs["krbPrincipalName"]
+				if type(kpn) == "table" then kpn = kpn[1] end
+			end
+		end
+		rc,msg = change_krb_pw(kpn, pw)
+	end
+
+	return rc,msg
+end
+
+function hostadd(uid, desc, uidn, gid, pw)
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
 	if not (rc == 0) then return rc,msg end
@@ -387,66 +435,39 @@ function hostadd(host, domain, uidn, gid, l)
 	local ou = get_ou(ld, "Computers")
 	local realm = get_realm(ld)
 	local sid,smb_domain = get_sambaSID(ld)
-	local dn = "uid=" .. host .. "$," .. ou
-	local hostl = host:lower()
-	local hostu = host:upper()
-	local domainl = domain:lower()
-	local domainu = domain:upper()
-	local keytab  = "/etc/krb5.keytab"
-	local kpn     = "ldap/" .. hostl .. "." .. domainl .. "@" .. realm
-	local cmd
+	local dn = "uid=" .. uid .. "$," .. ou
+	local kpn     = "host/" .. uid:lower() .. "." .. realm:lower() .. "@" .. realm
+	local attrs = {}
 
-	rc,msg = ld:add(dn, {
-			objectClass      = { "top", "account", "posixAccount", "krbPrincipalAux", "sambaSAMAccount" },
-			cn		 = host .. "$",
-			uid		 = host .. "$",
-			uidNumber	 = uidn,
-			gidNumber	 = gid,
-			homeDirectory	 = "/dev/null",
-			sambaSID	 = sid,
-			sambaDomainName	 = smb_domain,
-			krbPrincipalName = { kpn,
-				"host/" .. hostl .. "." .. domainl .. "@" .. realm,
-				"cifs/" .. hostl .. "." .. domainl .. "@" .. realm,
-				"cifs/" .. hostu .. "." .. domainl .. "@" .. realm,
-				"cifs/" .. hostl .. "." .. domainu .. "@" .. realm,
-				"cifs/" .. hostu .. "." .. domainu .. "@" .. realm,
-				"cifs/" .. hostl .. "@" .. realm,
-				"cifs/" .. hostu .. "@" .. realm,
-			}
-		})
-
-	os.execute("rm " .. keytab)
-	cmd = "kadmin.local -q \"ktadd -k " .. keytab .. " " .. kpn .. "\""
-	rc = os.execute(cmd)
-	if not rc == 0 then
-		msg = "Failed to execute: " .. cmd
+	if not pw or pw == "" then pw = 
+		math.randomseed(os.time())
+		pw = rnd_pw(12)
+	end
+	if not desc or desc == "" then
+		desc = uid
 	end
 
-	return rc,msg
-end
+	attrs.objectClass		= { "top", "account", "posixAccount", "krbPrincipalAux", "sambaSAMAccount" }
+	attrs.cn				= uid .. "$"
+	attrs.uid				= uid .. "$"
+	attrs.uidNumber			= uidn
+	attrs.gidNumber			= gid
+	attrs.homeDirectory		= "/dev/null"
+	attrs.sambaSID			= sid
+	attrs.sambaDomainName	= smb_domain
+	attrs.krbPrincipalName	= kpn
+	attrs.description		= desc
+	
+	rc,msg = ld:add (dn, attrs)
 
-function concat_kpn(kpn)
-	if not (type(kpn) == "table") then
-		return kpn
-	end
-
-	local concat
-
-	for key,value in pairs (kpn) do
-		if not concat then
-			concat = value
-		else
-			concat = concat .. "<br />" .. value
-		end
-	end
-	return concat
+	if rc == 0 then change_krb_pw(kpn, pw) end
+	return rc,msg,dn
 end
 
 function grouplist(callback)
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 
 	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
 		callback({
@@ -463,7 +484,7 @@ function userlist(callback)
 	local groups = {}
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 
 	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
 		local gid  = tonumber(attrs[attr_group[2]])
@@ -479,7 +500,7 @@ function userlist(callback)
 			sn =  attrs[attr_user[3]],
 			uidn = tonumber(attrs[attr_user[4]]),
 			gid = tonumber(attrs[attr_user[5]]),
-			kpn = concat_kpn(attrs[attr_user[6]]),
+			kpn = attrs[attr_user[6]],
 			homedir = attrs[attr_user[7]],
 			shell = attrs[attr_user[8]],
 			groups = groups
@@ -494,7 +515,7 @@ function hostlist(callback)
 	local gid, desc
 	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	if not rc == 0 then return end
+	if not (rc == 0) then return end
 
 	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
 		gid  = tonumber(attrs[attr_group[2]]);
@@ -511,11 +532,12 @@ function hostlist(callback)
 		end
 
 		callback ({
+			dn = dn,
 			uid    = name,
 			desc   = attrs[attr_host[2]],
-			uidn   = attrs[attr_host[3]],
-			gid    = gid,
-			kpn    = concat_kpn(attrs[attr_host[5]]),
+			uidn   = tonumber(attrs[attr_host[3]]),
+			gid    = tonumber(gid),
+			kpn    = attrs[attr_host[5]],
 			groups = groups
 		})
 	end
@@ -532,5 +554,25 @@ function rnd_pw(len)
 		pass = pass .. c
 	until string.len(pass) >= len
 	return pass
+end
+
+function change_krb_pw(kpn, pw)
+	return luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
+end
+
+function changepw(ld, dn, kpn, uid, pw)
+	local rc, msg
+
+	change_krb_pw(kpn, pw)
+
+	--[[ Samba pw ]]--
+	tmppwfile = "/tmp/userpw"
+	nixio.fs.writefile(tmppwfile, pw .. "\n" .. pw .. "\n")
+	smbpwadd = "smbpasswd -s -a " .. uid .. "<" .. tmppwfile
+	luci.sys.exec(smbpwadd)
+	nixio.fs.remove(tmppwfile)
+
+	 --[[ LDAP pw ]]--
+	rc, msg = ld:modify(dn, { '=', userPassword = luci.sys.exec("slappasswd -s " .. pw) })
 end
 

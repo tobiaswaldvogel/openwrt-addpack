@@ -30,69 +30,72 @@
 <%end%>
 
 <form name="idm" id="idm" method="post" action="<%=REQUEST_URI%>">
-	<input type="hidden" id="init_state" name="init_state" value="none" />
-	<%if not (init_state == "none") then%>
-	<input type="hidden" name="dns_domain" value="<%=dns_domain%>" />
-	<input type="hidden" name="domain" value="<%=domain%>" />
-	<input type="hidden" name="basedn" value="<%=basedn%>" />
-	<input type="hidden" name="ldappw" value="<%=ldappw%>" />
-	<%end%>
+	<div>
+		<input type="hidden" id="init_state" name="init_state" value="none" />
+		<%if not (init_state == "none") then%>
+		<input type="hidden" name="dns_domain" value="<%=dns_domain%>" />
+		<input type="hidden" name="domain" value="<%=domain%>" />
+		<input type="hidden" name="basedn" value="<%=basedn%>" />
+		<input type="hidden" name="ldappw" value="<%=ldappw%>" />
+		<%end%>
+	</div>
 	<div class="cbi-map" id="cbi-idm"><fieldset class="cbi-section" id="cbi-idm-table">
-		<div class="cbi-section-node"><table class="cbi-section-table">
+		<table class="cbi-section-table">
 			<tr class="cbi-section-table-titles">
-				<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:DNS domain%></th>
-				<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:Domain%></th>
-				<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:LDAP base DN%></th>
-				<th class="cbi-section-table-cell" style="text-align:left; width: 20%"><%:LDAP Manager password%></th>
-				<th class="cbi-section-table-cell" style="width: 20%"></th>
+				<th class="cbi-section-table-cell left" style="width: 20%"><%:DNS domain%></th>
+				<th class="cbi-section-table-cell left" style="width: 20%"><%:Domain%></th>
+				<th class="cbi-section-table-cell left" style="width: 20%"><%:LDAP base DN%></th>
+				<th class="cbi-section-table-cell left" style="width: 20%"><%:LDAP Manager password%></th>
+				<th class="cbi-section-table-cell left" style="width: 20%"></th>
 			</tr>
 			<tr class="cbi-section-table-row">
 			<%if init_state == "none" then%>
-				<td class="cbi-value-field" style="text-align:left">
+				<td class="cbi-section-table-cell left">
 					<input class="cbi-input-text" type="text" name="dns_domain" value="<%=dns_domain%>"
 						onkeyup="document.getElementById('domain').value=this.value;document.getElementById('basedn').value='dc='+this.value.replace(/\./g,',dc=');" />
 				</td>
-				<td class="cbi-value-field" style="text-align:left">
+				<td class="cbi-section-table-cell left">
 					<input class="cbi-input-text" type="text" name="domain" id="domain" value="<%=domain%>"
 						style="text-transform: uppercase" />
 				</td>
-				<td class="cbi-value-field" style="text-align:left">
+				<td class="cbi-section-table-cell left">
 					<input class="cbi-input-text" type="text" name="basedn" id="basedn" value="<%=basedn%>" />
 				</td>
-				<td class="cbi-value-field" style="text-align:left">
-					<input class="cbi-input-text" type="text" name="ldappw" id="ldappw" value="<%=ldappw%>"
-						style="text-indent: 17px;background: url('<%=resource%>/cbi/key.gif')no-repeat scroll 1px center;" />
+				<td class="cbi-section-table-cell left">
+					<input class="cbi-input-password" type="text" name="ldappw" id="ldappw" value="<%=ldappw%>" />
 				</td>
 			<%else%>
-				<td class="cbi-value-field" style="text-align:left"><%=dns_domain%></td>
-				<td class="cbi-value-field" style="text-align:left"><%=domain%></td>
-				<td class="cbi-value-field" style="text-align:left"><%=basedn%></td>
-				<td class="cbi-value-field" style="text-align:left">
-					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/key.gif')no-repeat scroll 1px center;"><%=ldappw%></div>
+				<td class="cbi-section-table-cell left"><%=dns_domain%></td>
+				<td class="cbi-section-table-cell left"><%=domain%></td>
+				<td class="cbi-section-table-cell left"><%=basedn%></td>
+				<td class="cbi-section-table-cell left">
+					<div style="text-indent: 17px; background: url('<%=resource%>/cbi/key.gif') no-repeat scroll 1px center;"><%=ldappw%></div>
 				</td>
 			<%end%>
 			</tr>
-		</table></div>
+			<%if init_state == "none" then%><tr class="cbi-section-table-row">
+				<td class="cbi-section-table-cell left" colspan="5">
+					<input class="cbi-button cbi-button-apply" type="submit" value="<%:Start%>"
+						onclick="document.getElementById('init_state').value='run'" />
+				</td>				
+			</tr>
+			<%if nixio.fs.access("/var/run/ldapi") then %><tr class="cbi-section-table-row">
+				<td class="cbi-section-table-cell left" colspan="5">
+					<div style="text-indent: 17px; background: url('<%=resource%>/cbi/reset.gif') no-repeat scroll 1px center;"><%:Warning! Initializing IDM will erase all existing objects!%></div>
+				</td>				
+			</tr><%end%><%end%>
+		</table>
 	</fieldset></div>
-	<%if init_state == "none" then%>
-	<input class="cbi-button cbi-button-apply" type="submit" value="<%:Start%>"
-		onclick="document.getElementById('init_state').value='run'" />
-	<%if nixio.fs.access("/var/run/ldapi") then %>
-	<br /><br /><img src="<%=resource%>/cbi/reset.gif" />
-	<%:Warning! Initializing IDM will erase all existing objects!%>
-	<img src="<%=resource%>/cbi/reset.gif" />
-	<%end%>
-	<%end%>
 </form>
 <%if init_state == "refresh" or init_state == "finish" then%>
 <div class="cbi-map" id="cbi-group"><fieldset class="cbi-section" id="cbi-table-status">
-	<div class="cbi-section-node"><table class="cbi-section-table">
+	<table class="cbi-section-table">
 		<% style = nil; newgid = 1000;  get_status(function(item) %>
 		<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 			<td class="cbi-value-field" style="text-align:left"><%=item.line%></td>
 		</tr>
 		<% style = not style; end) %>
-	</table></div>
+	</table>
 </fieldset></div>
 <%end%>
 
