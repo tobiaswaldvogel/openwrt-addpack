@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=pam-krb5
-PKG_VERSION:=4.4
+PKG_VERSION:=4.6
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
@@ -29,6 +29,8 @@ endef
 define Package/pam-krb5/description
  PAM module for Kerbers 5
 endef
+
+EXTRA_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
 
 define Package/pam-krb5/install
 	$(INSTALL_DIR) $(1)/lib

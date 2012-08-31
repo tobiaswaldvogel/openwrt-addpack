@@ -24,7 +24,7 @@ define Package/nss_ldap
   CATEGORY:=Libraries
   TITLE:=NSS module for OpenLDAP
   URL:=http://www.padl.com
-  DEPENDS:=+libopenldap +libcom_err
+  DEPENDS:=+libopenldap +libcom_err +krb5-libs
 endef
 
 define Package/nss_ldap/description

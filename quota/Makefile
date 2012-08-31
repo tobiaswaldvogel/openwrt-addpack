@@ -18,6 +18,7 @@ PKG_SOURCE_URL:=@SF/linuxquota
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-tools
 PKG_FIXUP:=libtool
 PKG_INSTALL:=1
+PKG_BUILD_DEPENDS:=nfs-kernel-server/host
 
 include $(INCLUDE_DIR)/package.mk
 
