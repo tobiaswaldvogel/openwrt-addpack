@@ -1,0 +1,11 @@
+--- a/configure.in	2011-09-11 15:46:25.000000000 +0200
++++ b/configure.in	2012-06-23 11:24:32.899076652 +0200
+@@ -185,7 +185,7 @@
+     fi
+ 
+     AC_CHECK_HEADERS([sys/eventfd.h])
+-    AC_CHECK_FUNCS(eventfd)
++    AC_CHECK_FUNCS(eventfd_write)
+ 
+     AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
+ 

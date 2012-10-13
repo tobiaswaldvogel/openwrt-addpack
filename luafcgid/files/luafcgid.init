@@ -1,0 +1,21 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2010-2011 OpenWrt.org
+
+START=50
+
+CONF_FILE=/etc/luafcgid.conf
+
+start() {
+	while read line; do
+		l=${line%%=*}; spc=${l##*[! ]}; l=${l%$spc}
+		r=${line##*=}; spc=${r%%[! ]*}; r=${r#$spc}
+		[ ! -z $l ] && eval $l=$r
+	done < $CONF_FILE
+
+	/usr/bin/luafcgid $CONF_FILE
+	chmod 777 $listen
+}
+
+stop() {
+	killall luafcgid
+}

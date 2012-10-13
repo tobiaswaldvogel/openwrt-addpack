@@ -1,0 +1,56 @@
+# $Id$
+
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=libantlr3c
+PKG_VERSION:=3.2
+PKG_RELEASE:=1
+PKG_MD5SUM:=674646e1d1bf5c6015435480cead725a
+
+PKG_SOURCE_URL:=http://www.antlr.org/download/C
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_FIXUP:=libtool
+
+PKG_BUILD_DIR:=$(BUILD_DIR)/libantlr3c-$(PKG_VERSION)
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/libantlr3c
+SECTION:=libs
+CATEGORY:=Libraries
+TITLE:=libantlr3c
+URL:=http://www.antlr.org/
+MAINTAINER:=Espen Jürgensen <espenjurgensen+openwrt@gmail.com>
+endef
+
+define Package/libantlr3c/description
+  ANother Tool for Language Recognition, is a language tool that provides a framework for constructing recognizers, \
+interpreters, compilers, and translators from grammatical descriptions containing actions in a variety of target languages.
+endef
+
+TARGET_CFLAGS += $(FPIC)
+
+define Build/Configure
+	$(call Build/Configure/Default, \
+		--enable-shared \
+		--enable-static \
+	)
+endef
+
+define Build/Compile
+	$(MAKE) $(PKG_JOBS) -C $(PKG_BUILD_DIR) DESTDIR="$(PKG_INSTALL_DIR)" install
+endef
+
+define Build/InstallDev
+	$(INSTALL_DIR) $(1)/usr/include
+	$(CP) $(PKG_INSTALL_DIR)/usr/include/*.h $(1)/usr/include/
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libantlr3c.* $(1)/usr/lib/
+endef
+
+define Package/libantlr3c/install
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libantlr3c.*  $(1)/usr/lib/
+endef
+
+$(eval $(call BuildPackage,libantlr3c))

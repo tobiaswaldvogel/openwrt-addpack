@@ -16,7 +16,12 @@ PKG_SOURCE_URL:=http://archives.eyrie.org/software/kerberos
 
 include $(INCLUDE_DIR)/package.mk
 
-EXTRA_LDFLAGS += -Wl,-rpath-link=$(STAGING_DIR)/usr/lib
+#EXTRA_LDFLAGS += -Wl,-rpath-link=$(STAGING_DIR)/usr/lib
+
+EXTRA_CFLAGS += -I$(STAGING_DIR)/usr/include/krb5
+#EXTRA_LDFLAGS += \
+#        GSSGLUE_LIBS="-lkrb5 -lk5crypto -lcom_err -lkeyutils -lresolv -gssapi_krb5" \
+
 
 define Package/pam-krb5
   SECTION:=libs
