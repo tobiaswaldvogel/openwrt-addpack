@@ -1,0 +1,11 @@
+--- a/configure.in	2012-10-13 20:31:02.161940995 +0200
++++ b/configure.in	2012-10-13 20:31:24.158638130 +0200
+@@ -147,7 +147,7 @@
+ PKG_CHECK_MODULES(MINIXML, [ mxml ])
+ 
+ AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
+-AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
++AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-l:libevent_core-1.4.so.2"], AC_MSG_ERROR([libevent not found]))
+ AC_SUBST(LIBEVENT_LIBS)
+ 
+ AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
