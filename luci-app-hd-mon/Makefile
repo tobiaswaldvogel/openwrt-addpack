@@ -33,18 +33,15 @@ endef
 
 define Package/luci-app-hd-mon/install
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(CP) -r ./files/root/* $(1)
 	$(INSTALL_BIN) ./files/hd-mon.init $(1)/etc/init.d/hd-mon
+	$(CP) -r ./files/root/* $(1)
 endef
 
 define Package/luci-app-hd-mon/postinst
 #!/bin/sh
 rm $${IPKG_INSTROOT}/etc/rc.d/S95smartd 2>/dev/null
 rm $${IPKG_INSTROOT}/etc/init.d/smartd 2>/dev/null
-rm $${IPKG_INSTROOT}/etc/ssmtp/ssmtp.conf 2>/dev/null
-ln -s /tmp/ssmtp.conf $${IPKG_INSTROOT}/etc/ssmtp/ssmtp.conf
-ln -s /tmp/ssmtp.revaliases $${IPKG_INSTROOT}/etc/ssmtp/revaliases
-ln -s ../init.d/hd-mon $${IPKG_INSTROOT}/etc/rc.d/S50hd-mon
+#ln -s ../init.d/hd-mon $${IPKG_INSTROOT}/etc/rc.d/S50hd-mon
 grep -q 'hd-mon' $${IPKG_INSTROOT}/etc/config/ucitrack 2>/dev/null
 [ $$? -ne 0 ] && {
 	echo "" >>$${IPKG_INSTROOT}/etc/config/ucitrack

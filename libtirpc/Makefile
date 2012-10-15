@@ -34,7 +34,7 @@ endef
 
 CONFIGURE_ARGS += --enable-gss
 CONFIGURE_VARS += \
-	GSSGLUE_LIBS="-lkrb5 -lk5crypto -lcom_err -lkeyutils -lresolv -gssapi_krb5" \
+	GSSGLUE_LIBS="-lkrb5 -lk5crypto -l:libcom_err.so.3 -lkeyutils -lresolv -gssapi_krb5" \
 	GSSGLUE_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
 
 EXTRA_LDFLAGS := -lgssapi_krb5

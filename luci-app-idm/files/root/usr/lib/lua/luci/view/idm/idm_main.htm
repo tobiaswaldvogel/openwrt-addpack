@@ -16,6 +16,7 @@
 		<input type="hidden" id="obj" name="obj" value="<%=obj%>" />
 	</div>
 	<div class="cbi-map" id="cbi-group"><fieldset class="cbi-section" id="cbi-table-table">
+<%=groups[1000]["desc"]%>
 		<table class="cbi-section-table">
 			<tr class="cbi-section-table-titles">
 				<th class="cbi-section-table-cell left" style="width: 15%"><%:Group%></th>
@@ -23,17 +24,17 @@
 				<th class="cbi-section-table-cell left" style="width: 15%"><%:GID%></th>
 				<th class="cbi-section-table-cell left" style="width: 30%"></th>
 			</tr>
-			<% style = nil; newgid = 1000; luci.controller.idm.grouplist(function(grp) %>
+			<% style = nil; newgid = 1000; for gid,grp in pairs(groups) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
 					<div style="text-indent: 17px; background: url('<%=resource%>/cbi/group.gif') no-repeat scroll 1px center;"><%=grp.cn%></div>
 				</td>
 				<% if (act == "none") or not (obj == grp.dn) then %>
 				<td class="cbi-section-table-cell left"><%=grp.desc%></td>
-				<td class="cbi-section-table-cell left"><%=grp.gid%></td>
+				<td class="cbi-section-table-cell left"><%=gid%></td>
 				<% else %>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="desc" value="<%=grp.desc%>" /></td>
-				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="gid"  value="<%=grp.gid%>"  /></td>
+				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="gid"  value="<%=gid%>"  /></td>
 				<% end %>
 				<td class="cbi-section-table-cell right">
 					<% if act == "none" then %>
@@ -44,7 +45,7 @@
 					<% end %>
 				</td>
 			</tr>
-			<% style = not style; if newgid <= grp.gid then newgid = grp.gid + 1 end; end) %>
+			<% style = not style; if newgid <= gid then newgid = gid + 1 end; end %>
 			<% if act == "grpadd" then %>
 			<tr class="cbi-section-table-row">
 				<td class="cbi-section-table-cell left">
@@ -85,16 +86,16 @@
 				<th class="cbi-section-table-cell left" style="width: 20%"><%:Kerberos principal%></th>
 				<th class="cbi-section-table-cell" style="width: 10%"></th>
 			</tr>
-			<% style = nil; newuid = 1000; newgid = 1000; luci.controller.idm.userlist(function(usr) %>
+			<% style = nil; newuid = 1000; newgid = 1000; for uid,usr in pairs(users) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
-					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/user.gif') no-repeat scroll 1px center;"><%=usr.uid%></div>
+					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/user.gif') no-repeat scroll 1px center;"><%=uid%></div>
 				</td>
 				<%if (act == "none") or not (obj == usr.dn) then%>
 				<td class="cbi-section-table-cell left"><%=usr.gn%></td>
 				<td class="cbi-section-table-cell left"><%=usr.sn%></td>
 				<td class="cbi-section-table-cell left"><%=usr.uidn%></td>
-				<td class="cbi-section-table-cell left"><%=usr.groups[usr.gid] or usr.gid%></td>
+				<td class="cbi-section-table-cell left"><%=grp_lbl[usr.gid] or usr.gid%></td>
 				<td class="cbi-section-table-cell left"><%=usr.kpn%></td>
 				<td class="cbi-section-table-cell right">
 					<%if act == "none" then%>
@@ -109,11 +110,11 @@
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="sn" value="<%=usr.sn%>" /></td>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="uidn" value="<%=usr.uidn%>" /></td>
 				<td class="cbi-section-table-cell left"><select class="cbi-input-select" name="gid">"
-				<%for gid,desc in pairs(usr.groups) do%>
+				<%for gid,label in pairs(grp_lbl) do%>
 					<%if usr.gid == gid then selected=true %>
-						<option selected="selected" value="<%=gid%>"><%=desc%></option>
+						<option selected="selected" value="<%=gid%>"><%=label%></option>
 					<%else%>
-						<option value="<%=gid%>"><%=desc%></option>
+						<option value="<%=gid%>"><%=label%></option>
 					<%end%>
 				<%end%>
 				<%if not selected then%>
@@ -134,7 +135,7 @@
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="shell" value="<%=usr.shell%>" /></td>
 				<% end %>
 			</tr>
-			<% style = not style; if newuid <= usr.uidn then newuid = usr.uidn + 1 end; newgid = usr.gid; end) %>
+			<% style = not style; if newuid <= usr.uidn then newuid = usr.uidn + 1 end; newgid = usr.gid; end %>
 
 
 			<% if act == "usradd" then %>
@@ -144,13 +145,13 @@
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="sn" value="" /></td>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="uidn" value="<%=newuid%>" /></td>
 				<td class="cbi-section-table-cell left"><select class="cbi-input-select" name="gid">"
-				<% luci.controller.idm.grouplist(function(grp) %>
-				<%desc=grp.desc .. " (" .. grp.gid .. ")"; if grp.gid == newgid then selected=true %>
-						<option selected="selected" value="<%=grp.gid%>"><%=desc%></option>
+				<%for gid,label in pairs(grp_lbl) do%>
+					<%if gid == newgid then selected=true %>
+						<option selected="selected" value="<%=gid%>"><%=label%></option>
 					<%else%>
-						<option value="<%=grp.gid%>"><%=desc%></option>
+						<option value="<%=gid%>"><%=label%></option>
 					<%end%>
-				<% end) %>
+				<% end %>
 				<%if not selected then%>
 					<option selected="selected" value="<%=newgid%>"><%=newgid%></option>
 				<%end%>
@@ -199,15 +200,15 @@
 				<th class="cbi-section-table-cell left" style="width: 20%"><%:Kerberos principal%></th>
 				<th class="cbi-section-table-cell left" style="width: 10%"></th>
 			</tr>
-			<% style = nil; newuid = 100; newgid = 100; luci.controller.idm.hostlist(function(host) %>
+			<% style = nil; newuid = 100; newgid = 100; for uid,host in pairs(hosts) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
-					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/server.gif') no-repeat scroll 1px center;"><%=host.uid%></div>
+					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/server.gif') no-repeat scroll 1px center;"><%=uid%></div>
 				</td>
 				<%if (act == "none") or not (obj == host.dn) then%>
 				<td class="cbi-section-table-cell left"><%=host.desc%></td>
 				<td class="cbi-section-table-cell left"><%=host.uidn%></td>
-				<td class="cbi-section-table-cell left"><%=host.groups[host.gid] or host.gid%></td>
+				<td class="cbi-section-table-cell left"><%=grp_lbl[host.gid] or host.gid%></td>
 				<td class="cbi-section-table-cell left">
 					<%if type(host.kpn) == "string" then%><%=host.kpn%><%else%>
 						<%first=true; for key,value in pairs (host.kpn) do%>
@@ -227,11 +228,11 @@
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="desc" value="<%=host.desc%>" /></td>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="uidn" value="<%=newuid%>" /></td>
 				<td class="cbi-section-table-cell left"><select class="cbi-input-select" name="gid">"
-				<%for gid,desc in pairs(host.groups) do%>
+				<%for gid,label in pairs(grp_lbl) do%>
 					<%if host.gid == gid then selected=true %>
-						<option selected="selected" value="<%=gid%>"><%=desc%></option>
+						<option selected="selected" value="<%=gid%>"><%=label%></option>
 					<%else%>
-						<option value="<%=gid%>"><%=desc%></option>
+						<option value="<%=gid%>"><%=label%></option>
 					<%end%>
 				<%end%>
 				<%if not selected then%>
@@ -255,7 +256,7 @@
 				<%end%>
 				<%end%>
 			</tr>
-			<% style = not style; if newuid <= host.uidn then newuid = host.uidn + 1 end; newgid = host.gid; end) %>
+			<% style = not style; if newuid <= host.uidn then newuid = host.uidn + 1 end; newgid = host.gid; end %>
 			<% if act == "hostadd" then %>
 			<tr class="cbi-section-table-row">
 				<td class="cbi-section-table-cell left">
@@ -264,13 +265,13 @@
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="desc" value="" /></td>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-text" type="text" name="uidn" value="<%=newuid%>" /></td>
 				<td class="cbi-section-table-cell left"><select class="cbi-input-select" name="gid">"
-				<% luci.controller.idm.grouplist(function(grp) %>
-				<%desc=grp.desc .. " (" .. grp.gid .. ")"; if grp.gid == newgid then selected=true %>
-						<option selected="selected" value="<%=grp.gid%>"><%=desc%></option>
+				<%for gid,label in pairs(grp_lbl) do%>
+					<%if gid == newgid then selected=true %>
+						<option selected="selected" value="<%=gid%>"><%=label%></option>
 					<%else%>
-						<option value="<%=grp.gid%>"><%=desc%></option>
+						<option value="<%=gid%>"><%=label%></option>
 					<%end%>
-				<% end) %>
+				<% end %>
 				<%if not selected then%>
 					<option selected="selected" value="<%=newgid%>"><%=newgid%></option>
 				<%end%>

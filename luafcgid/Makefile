@@ -32,10 +32,11 @@ endef
 
 
 define Package/luafcgid/install
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/luafcgid $(1)/usr/bin/
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
+	$(INSTALL_DIR)  $(1)/usr/bin
+	$(INSTALL_BIN)  $(PKG_BUILD_DIR)/luafcgid $(1)/usr/bin/
+	$(INSTALL_DIR)  $(1)/etc/init.d
+	$(INSTALL_BIN)  ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
+	$(INSTALL_CONF) ./files/$(PKG_NAME).conf $(1)/etc
 endef
 
 $(eval $(call BuildPackage,luafcgid))

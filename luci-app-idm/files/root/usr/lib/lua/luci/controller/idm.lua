@@ -1,6 +1,8 @@
 require "lualdap"
 require "math"
 
+local reqval = luci.http.formvalue
+
 module("luci.controller.idm", package.seeall)
 
 attr_group = { "cn", "gidNumber", "description" }
@@ -35,51 +37,97 @@ function index()
 end
 
 function action_user()
-	local action = luci.http.formvalue("act") or "none"
-	local object = luci.http.formvalue("obj") or "none"
+	local cur_act = reqval("act") or "none"
+	local cur_obj = reqval("obj") or "none"
+	local new_act = "none"
+	local new_obj = "none"
+        local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
 
-	nixio.fs.writefile("/tmp/luadump", action .. "\n" .. object .. "\n")
-
-	if action == "none" then
-	elseif (action == "grprm") or (action == "usrrm") or (action == "hostrm") then
-		objrm(object)
-	elseif action == "grpmodok" then
-		grpmod(object, luci.http.formvalue("gid"), luci.http.formvalue("desc"))
-	elseif action == "grpaddok" then
-		grpadd(luci.http.formvalue("cn"), luci.http.formvalue("gid"), luci.http.formvalue("desc"))
-	elseif action == "usrmodok" then
-		usrmod(object, luci.http.formvalue("gn"), luci.http.formvalue("sn"),
-			luci.http.formvalue("uidn"), luci.http.formvalue("gid"),
-			luci.http.formvalue("kpn"), luci.http.formvalue("pw"),
-			luci.http.formvalue("homedir"), luci.http.formvalue("shell"))
-	elseif action == "usraddok" then
-		usradd(luci.http.formvalue("uid"), luci.http.formvalue("gn"),
-			luci.http.formvalue("sn"), luci.http.formvalue("uidn"),
-			luci.http.formvalue("gid"), luci.http.formvalue("pw"),
-			luci.http.formvalue("homedir"), luci.http.formvalue("shell"))
-	elseif action == "hostmodok" then
-		hostmod(object, luci.http.formvalue("desc"),
-			luci.http.formvalue("uidn"), luci.http.formvalue("gid"),
-			luci.http.formvalue("pw"), luci.http.formvalue("kpn"))
-	elseif action == "hostaddok" then
-		hostadd(luci.http.formvalue("uid"), luci.http.formvalue("desc"),
-			luci.http.formvalue("uidn"), luci.http.formvalue("gid"),
-			luci.http.formvalue("pw"))
+	if cur_act == "none" then
+	elseif (cur_act == "grprm") or (cur_act == "usrrm") or (cur_act == "hostrm") then
+		ld:delete(cur_obj)
+	elseif cur_act == "grpmodok" then
+		ld:modify(cur_obj, { '=', gidNumber = reqval("gid"), description = reqval("desc") })
+	elseif cur_act == "grpaddok" then
+	        local ou = get_ou(ld, "Groups")
+		ld:add("cn=" ..  reqval("cn") .. "," .. ou, { objectClass = { "top", "posixGroup" }, gidNumber = reqval("gid"), description = reqval("desc") })
+	elseif cur_act == "usrmodok" then
+		usrmod(ld, cur_obj, reqval("gn"), reqval("sn"), reqval("uidn"), reqval("gid"), reqval("kpn"), reqval("pw"), reqval("homedir"), reqval("shell"))
+	elseif cur_act == "usraddok" then
+		usradd(ld, reqval("uid"), reqval("gn"), reqval("sn"), reqval("uidn"), reqval("gid"), reqval("pw"), reqval("homedir"), reqval("shell"))
+	elseif cur_act == "hostmodok" then
+		hostmod(ld, cur_obj, reqval("desc"), reqval("uidn"), reqval("gid"), reqval("pw"), reqval("kpn"))
+	elseif cur_act == "hostaddok" then
+		hostadd(ld, reqval("uid"), reqval("desc"), reqval("uidn"), reqval("gid"), reqval("pw"))
 	else
-		luci.template.render("idm/idm_main", {act=action, obj=object})
-		return
+		new_act = cur_act
+		new_obj = cur_obj
 	end
 
-	luci.template.render("idm/idm_main", {act="none", obj="none"})
+	local groups  = { }
+	local grp_lbl = { }
+	local gid, desc
+
+	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
+		gid  = tonumber(attrs[attr_group[2]])
+		desc = attrs[attr_group[3]]
+
+		groups[gid] = {
+                        dn    = dn,
+                        cn    = attrs[attr_group[1]],
+                        desc  = desc,
+		}
+
+		grp_lbl[gid] = desc .. " (" .. gid .. ")"
+	end
+
+        local attr_host  = { "uid", "description", "uidNumber", "gidNumber", "krbPrincipalName" }
+	local hosts = { }
+
+	for dn, attrs in ld:search { attrs = attr_host, filter="(&(!(objectClass=inetOrgPerson))(uid=*))", scope="s" } do
+		local name = attrs[attr_host[1]]
+		local gid  = tonumber(attrs[attr_host[4]])
+
+		if name:sub(-1) == "$" then
+			name = name:sub(1,-2)
+		end
+
+		hosts[name] = {
+                        dn = dn,
+                        desc   = attrs[attr_host[2]],
+                        uidn   = tonumber(attrs[attr_host[3]]),
+                        gid    = tonumber(gid),
+                        kpn    = attrs[attr_host[5]],
+                }
+
+	end	
+
+	local attr_user = { "uid","givenName","sn", "uidNumber", "gidNumber", "krbPrincipalName","homeDirectory", "loginShell" }
+	local users = { }
+
+	for dn, attrs in ld:search { attrs = attr_user, filter="(&(objectClass=inetOrgPerson)(uid=*))", scope="s" } do
+		users[attrs[attr_user[1]]] = {
+                        dn = dn,
+                        gn =  attrs[attr_user[2]],
+                        sn =  attrs[attr_user[3]],
+                        uidn = tonumber(attrs[attr_user[4]]),
+                        gid = tonumber(attrs[attr_user[5]]),
+                        kpn = attrs[attr_user[6]],
+                        homedir = attrs[attr_user[7]],
+                        shell = attrs[attr_user[8]],
+                }
+        end
+
+	luci.template.render("idm/idm_main", {act=new_act, obj=new_obj, grp_lbl=grp_lbl, groups=groups, users=users, hosts=hosts})
 end
 
 function action_init()
 	math.randomseed(os.time())
-	local init_state = luci.http.formvalue("init_state") or "none"
-	local dns_domain = luci.http.formvalue("dns_domain") or "local.net"
-	local domain = luci.http.formvalue("domain") or dns_domain
-	local basedn = luci.http.formvalue("basedn") or "dc=" .. dns_domain:gsub("[\.]", ",dc=")
-	local ldappw = luci.http.formvalue("ldappw") or rnd_pw(12)
+	local init_state = reqval("init_state") or "none"
+	local dns_domain = reqval("dns_domain") or "local.net"
+	local domain = reqval("domain") or dns_domain
+	local basedn = reqval("basedn") or "dc=" .. dns_domain:gsub("[\.]", ",dc=")
+	local ldappw = reqval("ldappw") or rnd_pw(12)
 	local run
 
 	domain = domain:upper()
@@ -154,8 +202,10 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	os.execute("/etc/init.d/krb5kdc stop")
 	l:write("done\n")
 
-	l:write("Cleanup LDAP data ... ")
+	l:write("Cleanup Kerberos and LDAP data ... ")
 	os.execute("rm -rf /overlay/etc/openldap/data/*")
+	os.execute("rm -f /etc/config/krb5")
+	os.execute("rm -f /etc/config/ldap")
 	l:write("done\n")
 
 	l:write("Configuring LDAP ... ")
@@ -233,7 +283,8 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("Configuring Kerberos ... ")
 	nixio.fs.writefile("/etc/config/krb5", "")
         c = luci.model.uci.cursor()
-        c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc= {host}, kadmind={host}, ldap={"ldapi:///"} })
+        c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc= {host}, kadmind={host}, ldap={"ldapi:///"},
+		 enctype={"rc4-hmac:normal"}, master_key_type="rc4-hmac" })
         c:save("krb5")
         c:commit("krb5")
 	os.execute("/etc/init.d/krb5conf start")
@@ -247,11 +298,15 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("done\n")
 
 	l:write("Restarting Samba to create domain object ... ")
+	c = luci.model.uci.cursor()
+	c:set("samba", c:get_first("samba", "samba"), "workgroup", domain)
+	c:save("samba")
+	c:commit("samba")
 	os.execute("/etc/init.d/samba restart")
 	l:write("done\n")
 
 	l:write("Creating machine account for " .. host .. " ... ")
-	rc,msg,host_dn = hostadd(host, host, 100, 100, nil)
+	rc,msg,host_dn = hostadd(ld, host, host, 100, 100, nil)
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
@@ -317,39 +372,8 @@ function get_sambaSID(ld)
         end
 end
 
-function objrm(dn)
-        rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-        if not (rc == 0) then return end
-
-	ld:delete(dn)	
-end
-
-function grpmod(dn, gid, desc)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-	rc, msg = ld:modify(dn, { '=', gidNumber = gid, description = desc })
-end
-
-function grpadd(cn, gid, desc)
-        local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-	local ou = get_ou(ld, "Groups")
-
-        if not (rc == 0) then return end
-
-        rc, msg = ld:add("cn=" .. cn .. "," .. ou, {
-		objectClass = { "top", "posixGroup" },
-		gidNumber = gid,
-		description = desc
-	})
-end
-
-function usrmod(dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-	rc, msg = ld:modify(dn, { '=',
+function usrmod(ld, dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
+	local rc, msg = ld:modify(dn, { '=',
 		givenName = gn or " ",
 		sn = sn or " ",
 		uidNumber = uidn,
@@ -371,11 +395,7 @@ function usrmod(dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
 	end
 end
 
-function usradd(uid, gn, sn, uidn, gid, pw, homedir, shell)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-
+function usradd(ld, uid, gn, sn, uidn, gid, pw, homedir, shell)
 	local ou = get_ou(ld, "Users")
 	local realm = get_realm(ld)
 	local dn = "uid=" .. uid .. "," .. ou
@@ -394,25 +414,22 @@ function usradd(uid, gn, sn, uidn, gid, pw, homedir, shell)
 	attrs.loginShell	= shell
 	attrs.krbPrincipalName	= kpn
 
-	rc,msg = ld:add (dn, attrs)
+	local rc,msg = ld:add (dn, attrs)
 	if (rc == 0) then
 		changepw(ld, dn, kpn, uid, pw)
 	end
 	return rc,msg,dn
 end
 
-function hostmod(dn, desc, uidn, gid, pw, kpn)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
+function hostmod(ld, dn, desc, uidn, gid, pw, kpn)
 	local attrs = {}
-
-	if not (rc == 0) then return rc,msg end
 
 	attrs.desc		= desc or ""
 	attrs.uidNumber	= uidn
 	attrs.gidNumber	= gid
 	if kpn and not (kpn == "") then attrs.krbPrincipalName = kpn end
 
-	rc, msg = ld:modify(dn, { '=', attrs })
+	local rc, msg = ld:modify(dn, { '=', attrs })
 
 	if rc == 0 and pw and pw:len() > 0 then
 		if not kpn then
@@ -427,11 +444,7 @@ function hostmod(dn, desc, uidn, gid, pw, kpn)
 	return rc,msg
 end
 
-function hostadd(uid, desc, uidn, gid, pw)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return rc,msg end
-
+function hostadd(ld, uid, desc, uidn, gid, pw)
 	local ou = get_ou(ld, "Computers")
 	local realm = get_realm(ld)
 	local sid,smb_domain = get_sambaSID(ld)
@@ -458,89 +471,10 @@ function hostadd(uid, desc, uidn, gid, pw)
 	attrs.krbPrincipalName	= kpn
 	attrs.description		= desc
 	
-	rc,msg = ld:add (dn, attrs)
+	local rc,msg = ld:add (dn, attrs)
 
 	if rc == 0 then change_krb_pw(kpn, pw) end
 	return rc,msg,dn
-end
-
-function grouplist(callback)
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-
-	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
-		callback({
-			dn   = dn, 
-			cn   = attrs[attr_group[1]],
-			gid  = tonumber(attrs[attr_group[2]]),
-			desc = attrs[attr_group[3]],
-		})
-	end
-end
-
-function userlist(callback)
-	local attr_user = { "uid","givenName","sn", "uidNumber", "gidNumber", "krbPrincipalName","homeDirectory", "loginShell" }
-	local groups = {}
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-
-	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
-		local gid  = tonumber(attrs[attr_group[2]])
-		local desc = attrs[attr_group[3]]
-		groups[gid] = desc .. " (" .. gid .. ")"
-	end
-
-	for dn, attrs in ld:search { attrs = attr_user, filter="(&(objectClass=inetOrgPerson)(uid=*))", scope="s" } do
-		callback({
-			dn = dn,
-			uid = attrs[attr_user[1]],
-			gn =  attrs[attr_user[2]],
-			sn =  attrs[attr_user[3]],
-			uidn = tonumber(attrs[attr_user[4]]),
-			gid = tonumber(attrs[attr_user[5]]),
-			kpn = attrs[attr_user[6]],
-			homedir = attrs[attr_user[7]],
-			shell = attrs[attr_user[8]],
-			groups = groups
-		})
-
-	end
-end
-
-function hostlist(callback)
-	local attr_host  = { "uid", "description", "uidNumber", "gidNumber", "krbPrincipalName" }
-	local groups = {}
-	local gid, desc
-	local rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
-
-	if not (rc == 0) then return end
-
-	for dn, attrs in ld:search { attrs = attr_group, filter="objectClass=posixGroup", scope="s" } do
-		gid  = tonumber(attrs[attr_group[2]]);
-		desc = attrs[attr_group[3]];
-		groups[gid] = desc .. " (" .. gid .. ")"
-	end
-
-	for dn, attrs in ld:search { attrs = attr_host, filter="(&(!(objectClass=inetOrgPerson))(uid=*))", scope="s" } do
-		local name = attrs[attr_host[1]]
-		local gid  = tonumber(attrs[attr_host[4]])
-
-		if name:sub(-1) == "$" then
-			name = name:sub(1,-2)
-		end
-
-		callback ({
-			dn = dn,
-			uid    = name,
-			desc   = attrs[attr_host[2]],
-			uidn   = tonumber(attrs[attr_host[3]]),
-			gid    = tonumber(gid),
-			kpn    = attrs[attr_host[5]],
-			groups = groups
-		})
-	end
 end
 
 function rnd_pw(len)

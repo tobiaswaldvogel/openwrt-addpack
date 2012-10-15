@@ -51,6 +51,12 @@ define Package/nss-pam-ldapd/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/nslcd $(1)/usr/sbin
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/nslcd.init $(1)/etc/init.d/nslcd
+	$(INSTALL_CONF) $(PKG_INSTALL_DIR)/etc/nslcd.conf $(1)/etc
+	$(SED) 's!uid nslcd!uid root!g' $(1)/etc/nslcd.conf
+	$(SED) 's!gid nslcd!gid root!g' $(1)/etc/nslcd.conf
+	$(SED) 's!uri ldap://127.0.0.1/!uri ldapi:///!g' $(1)/etc/nslcd.conf
+	$(SED) 's!base dc=example,dc=com!#base dc=example,dc=com!g' $(1)/etc/nslcd.conf
+	echo -e >>$(1)/etc/nslcd.conf "\nthreads 1"
 endef
 
 define Package/libnss_ldap/install

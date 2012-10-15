@@ -11,8 +11,10 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=parted
-PKG_VERSION:=3.0
+PKG_VERSION:=3.1
 PKG_RELEASE:=1
+
+PKG_INSTALL:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
 PKG_SOURCE_URL:=@GNU/$(PKG_NAME)
@@ -42,9 +44,9 @@ endef
 define Package/parted/install	
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libparted/.libs/libparted.so.1.0.0 $(1)/usr/lib/libparted.so.1
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/parted/.libs/parted $(1)/usr/sbin/parted	
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/partprobe/.libs/partprobe $(1)/usr/sbin/partprobe
+	$(CP)          $(PKG_INSTALL_DIR)/usr/lib/*.so*      $(1)/usr/lib
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/parted    $(1)/usr/sbin	
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/partprobe $(1)/usr/sbin
 endef
 
 $(eval $(call BuildPackage,parted))

@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gptfdisk
-PKG_VERSION:=0.8.4
+PKG_VERSION:=0.8.5
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=@SF/gptfdisk
-#PKG_MD5SUM:=c7ac6afdf7730ac8387a8e87198d4491
+PKG_MD5SUM:=
 
 include $(INCLUDE_DIR)/package.mk
 

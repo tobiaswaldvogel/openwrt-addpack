@@ -36,8 +36,8 @@ define Package/forked-daapd/conffiles
 /etc/forked-daapd.conf
 endef
 
-TARGET_CFLAGS += $(FPIC)
-TARGET_LDFLAGS += -Wl,-rpath-link,$(STAGING_DIR)/usr/lib
+TARGET_CFLAGS += $(FPIC) -I$(STAGING_DIR)/usr/include/libevent
+TARGET_LDFLAGS += -L$(STAGING_DIR)/usr/lib/libevent -Wl,-rpath-link,$(STAGING_DIR)/usr/lib
 
 define Build/Configure
 	$(call Build/Configure/Default, \
