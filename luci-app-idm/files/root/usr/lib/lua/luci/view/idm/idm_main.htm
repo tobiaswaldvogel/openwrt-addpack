@@ -16,7 +16,6 @@
 		<input type="hidden" id="obj" name="obj" value="<%=obj%>" />
 	</div>
 	<div class="cbi-map" id="cbi-group"><fieldset class="cbi-section" id="cbi-table-table">
-<%=groups[1000]["desc"]%>
 		<table class="cbi-section-table">
 			<tr class="cbi-section-table-titles">
 				<th class="cbi-section-table-cell left" style="width: 15%"><%:Group%></th>
@@ -24,7 +23,7 @@
 				<th class="cbi-section-table-cell left" style="width: 15%"><%:GID%></th>
 				<th class="cbi-section-table-cell left" style="width: 30%"></th>
 			</tr>
-			<% style = nil; newgid = 1000; for gid,grp in pairs(groups) do %>
+			<% style = nil; newgid = 103; for gid,grp in pairs(groups) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
 					<div style="text-indent: 17px; background: url('<%=resource%>/cbi/group.gif') no-repeat scroll 1px center;"><%=grp.cn%></div>
@@ -86,7 +85,7 @@
 				<th class="cbi-section-table-cell left" style="width: 20%"><%:Kerberos principal%></th>
 				<th class="cbi-section-table-cell" style="width: 10%"></th>
 			</tr>
-			<% style = nil; newuid = 1000; newgid = 1000; for uid,usr in pairs(users) do %>
+			<% style = nil; newuid = 1000; newgid = 100; for uid,usr in pairs(users) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
 					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/user.gif') no-repeat scroll 1px center;"><%=uid%></div>
@@ -200,7 +199,7 @@
 				<th class="cbi-section-table-cell left" style="width: 20%"><%:Kerberos principal%></th>
 				<th class="cbi-section-table-cell left" style="width: 10%"></th>
 			</tr>
-			<% style = nil; newuid = 100; newgid = 100; for uid,host in pairs(hosts) do %>
+			<% style = nil; newuid = 2000; newgid = 102; for uid,host in pairs(hosts) do %>
 			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
 				<td class="cbi-section-table-cell left">
 					<div style="text-indent: 17px;background: url('<%=resource%>/cbi/server.gif') no-repeat scroll 1px center;"><%=uid%></div>

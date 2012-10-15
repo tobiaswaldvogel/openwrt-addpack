@@ -264,13 +264,13 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 
 	dn = "cn=users," .. groupou
 	l:write("Adding " .. dn .. " ... ")
-	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 1000, description = "Users" })
+	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 100, description = "Users" })
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
 	dn = "cn=computers," .. groupou
 	l:write("Adding " .. dn .. " ... ")
-	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 100, description = "Computers" })
+	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 102, description = "Computers" })
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
@@ -306,7 +306,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("done\n")
 
 	l:write("Creating machine account for " .. host .. " ... ")
-	rc,msg,host_dn = hostadd(ld, host, host, 100, 100, nil)
+	rc,msg,host_dn = hostadd(ld, host, host, 2000, 102, nil)
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
@@ -422,14 +422,14 @@ function usradd(ld, uid, gn, sn, uidn, gid, pw, homedir, shell)
 end
 
 function hostmod(ld, dn, desc, uidn, gid, pw, kpn)
-	local attrs = {}
+	local attrs = { '=' }
 
-	attrs.desc		= desc or ""
-	attrs.uidNumber	= uidn
-	attrs.gidNumber	= gid
+	attrs.description	= desc or ""
+	attrs.uidNumber		= uidn
+	attrs.gidNumber		= gid
 	if kpn and not (kpn == "") then attrs.krbPrincipalName = kpn end
 
-	local rc, msg = ld:modify(dn, { '=', attrs })
+	local rc, msg = ld:modify(dn, attrs)
 
 	if rc == 0 and pw and pw:len() > 0 then
 		if not kpn then
@@ -461,8 +461,8 @@ function hostadd(ld, uid, desc, uidn, gid, pw)
 	end
 
 	attrs.objectClass		= { "top", "account", "posixAccount", "krbPrincipalAux", "sambaSAMAccount" }
-	attrs.cn				= uid .. "$"
-	attrs.uid				= uid .. "$"
+	attrs.cn			= uid .. "$"
+	attrs.uid			= uid .. "$"
 	attrs.uidNumber			= uidn
 	attrs.gidNumber			= gid
 	attrs.homeDirectory		= "/dev/null"
