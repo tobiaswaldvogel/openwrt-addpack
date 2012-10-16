@@ -7,9 +7,16 @@ require("luci.cacheloader")
 
 luci.dispatcher.indexcache = "/tmp/luci-indexcache"
 
-exectime = os.clock()
+-- os.exit would exit the fastcgi server
+-- therefore we replace it with a dummy function
+function os_exit_dummy(code)
+end
+_G["os"]["exit"] = os_exit_dummy
+
+os.exit(0)
 
 function main(env, req)
+	exectime = os.clock()
         local r = luci.http.Request(env, limitsource(req, tonumber(env.CONTENT_LENGTH)), ltn12.sink.file(io.stderr))
         local x = coroutine.create(luci.dispatcher.httpdispatch)
         local hcache = {}
