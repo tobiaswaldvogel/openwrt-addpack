@@ -1,0 +1,6 @@
+#!/bin/sh
+grep -q $'#\toption lua_prefix' /etc/config/uhttpd 2>/dev/null
+[ $? -eq 0 ] && sed -i -e 's!#\toption lua_prefix!\toption lua_prefix!g' /etc/config/uhttpd
+grep -q $'#\toption lua_handler' /etc/config/uhttpd 2>/dev/null
+[ $? -eq 0 ] && sed -i -e 's!#\toption lua_handler!\toption lua_handler!g' /etc/config/uhttpd
+
