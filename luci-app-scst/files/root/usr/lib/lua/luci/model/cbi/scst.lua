@@ -19,9 +19,11 @@ t = s:option(ListValue, "type", translate("Type"))
 t.default = "file"
 t:value("file", translate("Image file"))
 s:option(Value, "path", translate("Path")).rmempty = true
-b = s:option(Value, "blocksize", translate("Blocksize"))
+b = s:option(ListValue, "blocksize", translate("Blocksize"), translate("Use 512 Byte for VMWare"))
+b.default = 512
+b:value("512", translate("512 Byte"))
+b:value("4096", translate("4 kByte"))
 b.rmempty = true
-b.default = 4096
 
 s = m:section(TypedSection, "target", translate("Targets"))
 s.addremove = true
