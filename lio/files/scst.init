@@ -1,0 +1,158 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008-2012 OpenWrt.org
+
+START=80
+
+contains() {
+	for val in $1; do
+		[ $val == $2 ] && return 1
+	done
+	return 0
+}
+
+start_service() {
+	mkdir -p /var/lib/scst/pr
+	insmod scst
+	insmod scst_vdisk
+	insmod iscsi-scst
+	/usr/sbin/iscsi-scstd
+	echo 1 >/sys/kernel/scst_tgt/targets/iscsi/enabled
+}
+
+add_target() {
+	local name
+	config_get name $1 name
+	
+	[ -d /sys/kernel/scst_tgt ] || start_service
+
+	[ -e /sys/kernel/scst_tgt/targets/iscsi/$id:$name ] || \
+		echo "add_target $id:$name" \
+			> /sys/kernel/scst_tgt/targets/iscsi/mgmt 
+
+	echo 1 >/sys/kernel/scst_tgt/targets/iscsi/$id:$name/enabled
+
+	targets="$targets $id:$name"
+}
+
+clean_targets() {
+	for f in /sys/kernel/scst_tgt/targets/iscsi/$id*; do
+		[ -e $f ] && {
+			target=`basename $f`
+			contains "$targets" $target
+			[ $? == 0 ] && echo "del_target $target" > /sys/kernel/scst_tgt/targets/iscsi/mgmt
+		}
+	done
+}
+
+add_device() {
+	local name
+	local type
+	local filename
+	local blocksize
+	config_get name $1 name
+	config_get type $1 type
+	config_get path $1 path
+	config_get blocksize $1 blocksize 512
+
+	[ -e /sys/kernel/scst_tgt/devices/$name ] || {
+		[ $type == "file" ] && {
+			echo "add_device $name \
+				filename=$path; \
+				blocksize=$blocksize; \
+				zero_copy=1" \
+				>/sys/kernel/scst_tgt/handlers/vdisk_fileio/mgmt
+
+			echo "2" >/sys/kernel/scst_tgt/devices/$name/threads_num
+		}
+	}
+
+        devices="$devices $name"
+}
+
+clean_devices() {
+	for f in /sys/kernel/scst_tgt/devices/*; do
+		[ -e $f/handler ] && {
+			device=`basename $f`
+                        contains "$devices" $device
+                        [ $? == 0 ] && echo "del_device $device" >$f/handler/mgmt
+		}
+	done
+}
+
+assign_lun() {
+	local d
+	local curr_disk
+	local target
+	local new_disk
+	local lun
+
+	target=$1
+	lun=$2
+	new_disk=$3
+
+	[ -d /sys/kernel/scst_tgt/targets/iscsi/$target/luns/$lun ] && {
+		d=`cd /sys/kernel/scst_tgt/targets/iscsi/$target/luns/$lun/device; pwd -P`
+		curr_disk=`basename $d`
+	} || curr_disk=""
+
+	[ ! "$curr_disk" == "$new_disk" ] && {
+		[ ! -z "$curr_disk" ] && \
+			echo "del $lun" > /sys/kernel/scst_tgt/targets/iscsi/$target/luns/mgmt
+		[ ! -z "$new_disk" ] && \
+			echo "add $new_disk $lun" > /sys/kernel/scst_tgt/targets/iscsi/$target/luns/mgmt
+	}
+}
+
+assign() {
+	local name
+	local disks
+	local disk
+	local lun
+
+	config_get name $1 name
+	config_get disks $1 lun
+
+	lun=0
+	for disk in $disks; do
+		assign_lun $id:$name $lun $disk
+		let lun+=1
+	done
+	while [ $lun -lt 16 ]; do
+		assign_lun $id:$name $lun
+		let lun+=1
+	done
+}
+
+global_config() {
+	 config_get id $1 id	
+}
+
+start() {
+	config_load scst
+	config_foreach global_config global
+	config_foreach add_target target
+	clean_targets
+	config_foreach add_device device
+	config_foreach assign target
+	clean_devices
+	return 0
+}
+
+restart() {
+	start
+}
+
+reload() {
+	start
+}
+
+stop() {
+	[ -d /sys/kernel/scst_tgt ] && {
+		killall iscsi-scstd
+		sleep 2
+		rmmod scst_vdisk
+		rmmod iscsi-scst
+		rmmod scst
+	}
+}
+
