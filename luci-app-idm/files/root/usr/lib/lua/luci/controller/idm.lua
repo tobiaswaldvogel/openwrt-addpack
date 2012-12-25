@@ -283,7 +283,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("Configuring Kerberos ... ")
 	nixio.fs.writefile("/etc/config/krb5", "")
         c = luci.model.uci.cursor()
-        c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc= {host}, kadmind={host}, ldap={"ldapi:///"},
+        c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc={"localhost"}, kadmind={"localhost"}, ldap={"ldapi:///"},
 		 enctype={"rc4-hmac:normal"}, master_key_type="rc4-hmac" })
         c:save("krb5")
         c:commit("krb5")
