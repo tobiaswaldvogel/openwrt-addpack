@@ -10,7 +10,7 @@ i = s:option(Value, "id", translate("System ID"))
 i.rmempty = false
 i.default = "iqn.2012-12.org.openwrt"
 
-s = m:section(TypedSection, "device", translate("Devices"))
+s = m:section(TypedSection, "device", translate("Devices"), translate("You can create new image files with: dd if=/dev/zero of=&lt;image file&gt; bs=1024k count=&lt;size in MB&gt;"))
 s.addremove = true
 s.anonymous = true
 s.template = "cbi/tblsection"
