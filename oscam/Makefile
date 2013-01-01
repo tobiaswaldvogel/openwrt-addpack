@@ -9,8 +9,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=oscam
-PKG_REV:=7946
-PKG_VER:=2012-12-03
+PKG_REV:=8025
+PKG_VER:=2013-01-01
 PKG_VERSION:=$($PKG_VER)-$(PKG_REV)
 PKG_RELEASE:=1
 
@@ -28,11 +28,26 @@ define Package/oscam
   CATEGORY:=Network
   TITLE:=Open Source Conditional Access Modul
   URL:=http://www.streamboard.tv/oscam/wiki/BuildingOscam
+  DEPENDS:=+libcrypto +libopenssl +libusb-1.0
 endef
 
+define Package/list-smargo
+  $(call Package/oscam)
+  TITLE:=Smargo reader support
+  DEPENDS:=oscam
+endef
+
+MAKE_FLAGS += USE_LIBUSB=1 USE_LIBCRYPTO=1 USE_SSL=1 OSCAM_BIN=Distribution/oscam LIST_SMARGO_BIN=Distribution/list-smargo
+
 define Package/oscam/install
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/Distribution/oscam-$(TARGET) $(1)/usr/sbin/oscam
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/Distribution/oscam $(1)/usr/bin/oscam
+endef
+
+define Package/list-smargo/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/Distribution/list-smargo $(1)/usr/bin/list-smargo
 endef
 
 $(eval $(call BuildPackage,oscam))
+$(eval $(call BuildPackage,list-smargo))
