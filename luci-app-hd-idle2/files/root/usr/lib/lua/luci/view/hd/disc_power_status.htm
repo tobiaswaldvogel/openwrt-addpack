@@ -13,7 +13,7 @@ function disc_power_status(callback)
 			if pos then
 		                local disc = {
                 		        name = dev:sub(6),
-		                        state = translate("hd-idle_" .. line:sub(pos + 15):gsub("^%s*([a-z]*)(.-)%s*$", "%1"))
+		                        state = translate(line:sub(pos + 15):gsub("^%s*([a-z]*)(.-)%s*$", "%1"))
                 		}
 		                callback(disc)
 			end
@@ -23,11 +23,11 @@ end
 -%>
 
 <fieldset class="cbi-section">
-	<legend><%:hd-idle_pwr_state%></legend>
+	<legend><%:Disk power state%></legend>
 	<table class="cbi-section-table" id="disc_status_table">
 		<tr class="cbi-section-table-titles">
-			<th class="cbi-section-table-cell" width="20%"><%:hd-idle_disk%></th>
-			<th class="cbi-section-table-cell" width="20%"><%:hd-idle_pwr_state%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:Disk%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:Power state%></th>
 		</tr>
 		<% local style=true; disc_power_status(function(disc) %>
 		<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">

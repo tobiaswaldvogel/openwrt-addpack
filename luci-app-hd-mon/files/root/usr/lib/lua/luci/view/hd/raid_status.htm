@@ -17,11 +17,11 @@ end
 -%>
 
 <fieldset class="cbi-section">
-	<legend><%:raid_arrays%></legend>
+	<legend><%:Raid arrays%></legend>
 	<table class="cbi-section-table" id="raid_status_table">
 		<tr class="cbi-section-table-titles">
-			<th class="cbi-section-table-cell" width="20%"><%:raiddev%></th>
-			<th class="cbi-section-table-cell" width="20%"><%:raidstate%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:Raid device%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:Status%></th>
 		</tr>
 		<% local style=true; raid_status(function(raiddev) %>
 		<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
