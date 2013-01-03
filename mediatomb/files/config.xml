@@ -11,7 +11,7 @@
     <home>/etc/mediatomb/</home>
     <webroot>/usr/share/mediatomb/web</webroot>
     <storage driver="sqlite3">
-      <database-file>mediatomb.db</database-file>
+      <database-file>/mnt/md0/mediatomb.db</database-file>
     </storage>
   </server>
   <import hidden-files="no">
