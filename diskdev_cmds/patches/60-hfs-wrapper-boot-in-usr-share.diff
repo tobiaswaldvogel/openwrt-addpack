@@ -1,0 +1,15 @@
+Author: Rogério Brito <rbrito@ime.usp.br>
+Description:
+  Fix the installation of the HFS wrapper block to be compliant in Linux
+  systems (since it is arch independent).
+--- a/newfs_hfs.tproj/makehfs.c
++++ b/newfs_hfs.tproj/makehfs.c
+@@ -70,7 +70,7 @@
+ #include "readme.h"
+ 
+ 
+-#define HFS_BOOT_DATA	"/usr/share/misc/hfsbootdata"
++#define HFS_BOOT_DATA	"/usr/share/hfsprogs/hfsbootdata"
+ 
+ #define HFS_JOURNAL_FILE	".journal"
+ #define HFS_JOURNAL_INFO	".journal_info_block"

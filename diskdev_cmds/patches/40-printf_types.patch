@@ -1,0 +1,26 @@
+Author: Rogério Brito <rbrito@ime.usp.br>
+Description:
+  Try to address the issues of a given integral type having different sizes
+  in 32 and 64-bit architectures.
+--- a/fsck_hfs.tproj/dfalib/SControl.c
++++ b/fsck_hfs.tproj/dfalib/SControl.c
+@@ -776,7 +776,7 @@
+ 		pointer = (ScavStaticStructures *) AllocateClearMemory( sizeof(ScavStaticStructures) );
+ 		if ( pointer == nil ) {
+ 			if ( GPtr->logLevel >= kDebugLog ) {
+-				printf( "\t error %d - could not allocate %ld bytes of memory \n",
++				printf( "\t error %d - could not allocate %i bytes of memory \n",
+ 					R_NoMem, sizeof(ScavStaticStructures) );
+ 			}
+ 			return( R_NoMem );
+--- a/fsck_hfs.tproj/dfalib/hfs_endian.c
++++ b/fsck_hfs.tproj/dfalib/hfs_endian.c
+@@ -563,7 +563,7 @@
+             /* Make sure name length is consistent with key length */
+             if (keyLength < sizeof(srcKey->parentID) + sizeof(srcKey->nodeName.length) +
+                 srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0])) {
+-				if (debug) printf("hfs_swap_HFSPlusBTInternalNode: catalog record #%d keyLength=%d expected=%lu\n",
++				if (debug) printf("hfs_swap_HFSPlusBTInternalNode: catalog record #%d keyLength=%d expected=%i\n",
+ 					srcDesc->numRecords-i, keyLength, sizeof(srcKey->parentID) + sizeof(srcKey->nodeName.length) +
+                     srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0]));
+ 				WriteError(fcb->fcbVolume->vcbGPtr, E_KeyLen, fcb->fcbFileID, src->blockNum);
