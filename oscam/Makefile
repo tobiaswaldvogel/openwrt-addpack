@@ -28,7 +28,7 @@ define Package/oscam
   CATEGORY:=Network
   TITLE:=Open Source Conditional Access Modul
   URL:=http://www.streamboard.tv/oscam/wiki/BuildingOscam
-  DEPENDS:=+libcrypto +libopenssl +libusb-1.0
+  DEPENDS:=+libopenssl +libusb-1.0
 endef
 
 define Package/list-smargo
