@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=forked-daapd
 PKG_VERSION:=0.19
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 PKG_MD5SUM:=53e6f1d6683e3275e7c7698ec923a97e
 
 PKG_SOURCE_URL:=http://alioth.debian.org/~jblache/forked-daapd \

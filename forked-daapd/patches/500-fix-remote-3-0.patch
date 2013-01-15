@@ -1,0 +1,94 @@
+--- a/src/DAAP2SQL.g	2013-01-15 19:23:37.549325775 +0100
++++ b/src/DAAP2SQL.g	2013-01-15 19:24:04.575476742 +0100
+@@ -133,6 +133,7 @@
+ 
+ 			val = field;
+ 			while ((*val != '\0') && ((*val == '.')
++				|| (*val == '-')
+ 				|| ((*val >= 'a') && (*val <= 'z'))
+ 				|| ((*val >= 'A') && (*val <= 'Z'))
+ 				|| ((*val >= '0') && (*val <= '9'))))
+--- a/src/daap_query.gperf	2013-01-15 19:25:21.325747981 +0100
++++ b/src/daap_query.gperf	2013-01-15 19:24:57.333726154 +0100
+@@ -37,3 +37,4 @@
+ "daap.songtracknumber",       "f.track",            1
+ "daap.songyear",              "f.year",             1
+ "com.apple.itunes.mediakind", "f.media_kind",       1
++"com.apple.itunes.extended-media-kind",  "f.media_kind",         1
+--- a/src/dacp_prop.gperf	2013-01-15 19:25:52.788088311 +0100
++++ b/src/dacp_prop.gperf	2013-01-15 19:26:26.109508889 +0100
+@@ -20,3 +20,9 @@
+ "dacp.shufflestate",           dacp_propget_shufflestate,           dacp_propset_shufflestate
+ "dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate
+ "dacp.userrating",             NULL,                                dacp_propset_userrating
++"dacp.fullscreenenabled",      dacp_propget_fullscreenenabled,      NULL
++"dacp.fullscreen",             dacp_propget_fullscreen,             NULL
++"dacp.visualizerenabled",      dacp_propget_visualizerenabled,      NULL
++"dacp.visualizer",             dacp_propget_visualizer,             NULL
++"com.apple.itunes.itms-songid", dacp_propget_itms_songid,           NULL
++"com.apple.itunes.has-chapter-data", dacp_propget_haschapterdata,   NULL
+--- a/src/httpd_dacp.c	2013-01-15 19:26:41.637170294 +0100
++++ b/src/httpd_dacp.c	2013-01-15 19:29:49.352168857 +0100
+@@ -103,6 +103,19 @@
+ static void
+ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+ 
++static void
++dacp_propget_fullscreenenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++static void
++dacp_propget_fullscreen(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++static void
++dacp_propget_visualizerenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++static void
++dacp_propget_visualizer(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++static void
++dacp_propget_itms_songid(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++static void
++dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
++
+ /* Forward - properties setters */
+ static void
+ dacp_propset_volume(const char *value, struct evkeyvalq *query);
+@@ -432,6 +445,42 @@
+   dacp_playingtime(evbuf, status, mfi);
+ }
+ 
++static void
++dacp_propget_fullscreenenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
++static void
++dacp_propget_fullscreen(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
++static void
++dacp_propget_visualizerenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
++static void
++dacp_propget_visualizer(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
++static void
++dacp_propget_itms_songid(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
++static void
++dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
++{
++  // TODO
++}
++
+ /* Properties setters */
+ static void
+ dacp_propset_volume(const char *value, struct evkeyvalq *query)

@@ -19,7 +19,7 @@ define Package/wsdd
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=WS Discovery daemon
-  DEPENDS:=+libubus +libubox
+  DEPENDS:=+libubus +libubox +libuuid
 endef
 
 define Build/Prepare
@@ -28,7 +28,7 @@ define Build/Prepare
 endef
 
 define Build/Compile
-	$(TARGET_CC) -I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) -L$(STAGING_DIR)/usr/lib -lubus -lubox -o $(PKG_BUILD_DIR)/$(PKG_NAME) $(PKG_BUILD_DIR)/$(PKG_NAME).c
+	$(TARGET_CC) -I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) -L$(STAGING_DIR)/usr/lib -lubus -lubox -l:libuuid.so.1 -o $(PKG_BUILD_DIR)/$(PKG_NAME) $(PKG_BUILD_DIR)/$(PKG_NAME).c
 endef
 
 define Package/wsdd/install

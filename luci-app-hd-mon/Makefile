@@ -14,7 +14,7 @@ define Package/luci-app-hd-mon
   SECTION:=luci
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
-  DEPENDS:=+smartd +mdadm +ssmtp
+  DEPENDS:=+smartmonmulti +mdadm +ssmtp
   TITLE:=RAID and SMART monitoring and email notification
 endef
 

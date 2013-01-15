@@ -2,6 +2,7 @@
 # Copyright (C) 2010-2012 OpenWrt.org
 
 START=70
+STOP=80
 
 start()
 {
