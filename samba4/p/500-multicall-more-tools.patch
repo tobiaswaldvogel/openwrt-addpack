@@ -1,0 +1,103 @@
+--- a/source3/multi.c	2012-05-22 07:14:03.232322032 +0200
++++ b/source3/multi.c	2012-05-22 07:31:12.115599838 +0200
+@@ -4,6 +4,13 @@
+ extern int smbd_main(int argc, char **argv);
+ extern int nmbd_main(int argc, char **argv);
+ extern int smbpasswd_main(int argc, char **argv);
++extern int smbcontrol_main(int argc, char **argv);
++extern int smbtree_main(int argc, char **argv);
++extern int smbstatus_main(int argc, char **argv);
++extern int smbcquotas_main(int argc, char **argv);
++extern int smbcacls_main(int argc, char **argv);
++extern int nmblookup_main(int argc, char **argv);
++extern int testparm_main(int argc, char **argv);
+ 
+ static struct {
+ 	const char *name;
+@@ -12,6 +19,13 @@
+ 	{ "smbd", smbd_main },
+ 	{ "nmbd", nmbd_main },
+ 	{ "smbpasswd", smbpasswd_main },
++	{ "smbcontrol", smbcontrol_main },
++	{ "smbtree", smbtree_main },
++	{ "smbstatus", smbstatus_main },
++	{ "smbcquotas", smbcquotas_main },
++	{ "smbcacls", smbcacls_main },
++	{ "nmblookup", nmblookup_main },
++	{ "testparm", testparm_main },
+ };
+ 
+ #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+--- a/source3/Makefile.in	2012-05-24 06:52:08.932549605 +0200
++++ b/source3/Makefile.in	2012-05-24 06:54:32.290184007 +0200
+@@ -1796,12 +1796,69 @@
+ 		echo "$(COMPILE_CC_PATH)" 1>&2;\
+ 		$(COMPILE_CC_PATH) >/dev/null 2>&1
+ 
++utils/smbcontrol_multicall.o: utils/smbcontrol.c utils/smbcontrol.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=smbcontrol_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/smbtree_multicall.o: utils/smbtree.c utils/smbtree.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=smbtree_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/status_multicall.o: utils/status.c utils/status.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=smbstatus_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/smbcquotas_multicall.o: utils/smbcquotas.c utils/smbcquotas.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=smbcquotas_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/smbcacls_multicall.o: utils/smbcacls.c utils/smbcacls.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=smbcacls_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/nmblookup_multicall.o: utils/nmblookup.c utils/nmblookup.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=nmblookup_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++utils/testparm_multicall.o: utils/testparm.c utils/testparm.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=testparm_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
+ SMBD_MULTI_O = $(patsubst smbd/server.o,smbd/server_multicall.o,$(SMBD_OBJ))
+ NMBD_MULTI_O = $(patsubst nmbd/nmbd.o,nmbd/nmbd_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(NMBD_OBJ)))
+ SMBPASSWD_MULTI_O = $(patsubst utils/smbpasswd.o,utils/smbpasswd_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(SMBPASSWD_OBJ)))
++SMBCONTROL_MULTI_O = $(patsubst utils/smbcontrol.o,utils/smbcontrol_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(SMBCONTROL_OBJ)))
++SMBTREE_MULTI_O =  $(patsubst utils/smbtree.o,utils/smbtree_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(SMBTREE_OBJ)))
++SMBSTATUS_MULTI_O =  $(patsubst utils/status.o,utils/status_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(STATUS_OBJ)))
++SMBCQUOTAS_MULTI_O =  $(patsubst utils/smbcquotas.o,utils/smbcquotas_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(SMBCQUOTAS_OBJ)))
++SMBCACLS_MULTI_O =  $(patsubst utils/smbcacls.o,utils/smbcacls_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(SMBCACLS_OBJ)))
++NMBLOOKUP_MULTI_O =  $(patsubst utils/nmblookup.o,utils/nmblookup_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(NMBLOOKUP_OBJ)))
++TESTPARM_MULTI_O =  $(patsubst utils/testparm.o,utils/testparm_multicall.o,$(filter-out $(LIB_DUMMY_OBJ),$(TESTPARM_OBJ)))
+ MULTI_O = multi.o
+ 
+-MULTICALL_O = $(sort $(SMBD_MULTI_O) $(NMBD_MULTI_O) $(SMBPASSWD_MULTI_O) $(MULTI_O))
++MULTICALL_O = $(sort $(SMBD_MULTI_O) $(NMBD_MULTI_O) $(SMBPASSWD_MULTI_O) $(SMBCONTROL_MULTI_O) $(SMBTREE_MULTI_O) $(SMBSTATUS_MULTI_O) $(SMBCQUOTAS_MULTI_O) \
++		     $(SMBCACLS_MULTI_O) $(NMBLOOKUP_MULTI_O) $(TESTPARM_MULTI_O) $(MULTI_O))
+ 
+ bin/samba_multicall@EXEEXT@: $(BINARY_PREREQS) $(MULTICALL_O) $(LIBTALLOC) $(LIBTDB) $(LIBWBCLIENT) @BUILD_POPT@
+ 	@echo Linking $@
