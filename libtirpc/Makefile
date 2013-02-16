@@ -25,19 +25,15 @@ define Package/libtirpc
   CATEGORY:=Libraries
   TITLE:=Library TI RPC for RPC bindings
   URL:=http://libtirpc.sourceforge.net/
-  DEPENDS:=+libpthread +krb5-libs
-endef
-
-define Package/libtirpc/description
-  Library TI RPC for RPC bindings
+  DEPENDS:=+libpthread +libgssglue
 endef
 
 CONFIGURE_ARGS += --enable-gss
-CONFIGURE_VARS += \
-	GSSGLUE_LIBS="-lkrb5 -lk5crypto -l:libcom_err.so.3 -lkeyutils -lresolv -gssapi_krb5" \
-	GSSGLUE_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
+#CONFIGURE_VARS += \
+#	GSSGLUE_LIBS="-lkrb5 -lk5crypto -l:libcom_err.so.3 -lkeyutils -lresolv -gssapi_krb5" \
+#	GSSGLUE_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
 
-EXTRA_LDFLAGS := -lgssapi_krb5
+#EXTRA_LDFLAGS := -lgssapi_krb5
 
 define Package/libtirpc/install
 	$(INSTALL_DIR) $(1)/usr/lib

@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=samba
-PKG_VERSION:=4.0.2
+PKG_VERSION:=4.0.3
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
@@ -43,7 +43,7 @@ define Package/samba4-client
   CATEGORY:=Network
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
-  DEPENDS:=+libreadline +libncurses +libopenldap +krb5-libs +libtirpc +libaio +libz
+  DEPENDS:=+libreadline +libncurses +libopenldap +krb5-libs +libtirpc +libaio +zlib
 endef
 
 define Package/samba4-server/config
@@ -161,7 +161,7 @@ CONFIGURE_ARGS += \
 	--with-quotas \
 	--with-syslog \
 	--with-shared-modules=pdb_tdbsam,pdb_wbc_sam,idmap_nss,nss_info_template,auth_winbind,auth_wbc,auth_domain,vfs \
-	--with-static-modules=vfs_default,vfs_aio_linux,vfs_dirsort,vfs_posixacl
+	--with-static-modules=vfs_default,vfs_dirsort,vfs_posixacl
 
 MAKE_FLAGS += DYNEXP= PICFLAG= MODULES=
 

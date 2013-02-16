@@ -81,7 +81,7 @@
  			d_printf(_("Usage:\n"));
 --- a/source3/smbd/reply.c
 +++ b/source3/smbd/reply.c
-@@ -5407,7 +5407,11 @@ void reply_printopen(struct smb_request 
+@@ -5426,7 +5426,11 @@ void reply_printopen(struct smb_request 
  		return;
  	}
  
@@ -94,7 +94,7 @@
  		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
  		END_PROFILE(SMBsplopen);
  		return;
-@@ -5513,7 +5517,10 @@ void reply_printqueue(struct smb_request
+@@ -5532,7 +5536,10 @@ void reply_printqueue(struct smb_request
  	   is really quite gross and only worked when there was only
  	   one printer - I think we should now only accept it if they
  	   get it right (tridge) */

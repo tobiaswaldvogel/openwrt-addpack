@@ -1,0 +1,65 @@
+--- a/source3/Makefile.in	2013-02-15 15:02:09.260398315 +0100
++++ b/source3/Makefile.in	2013-02-15 15:03:56.740738621 +0100
+@@ -890,6 +890,7 @@
+ VFS_AIO_PTHREAD_OBJ = modules/vfs_aio_pthread.o
+ VFS_AIO_POSIX_OBJ = modules/vfs_aio_posix.o
+ VFS_AIO_LINUX_OBJ = modules/vfs_aio_linux.o
++VFS_DAIO_LINUX_OBJ = modules/vfs_daio_linux.o
+ VFS_PREOPEN_OBJ = modules/vfs_preopen.o
+ VFS_SYNCOPS_OBJ = modules/vfs_syncops.o
+ VFS_ACL_XATTR_OBJ = modules/vfs_acl_xattr.o
+@@ -2948,6 +2949,10 @@
+ 	@echo "Building plugin $@"
+ 	@$(SHLD_MODULE) $(VFS_AIO_LINUX_OBJ)
+ 
++bin/daio_linux.@SHLIBEXT@: $(BINARY_PREREQS) $(VFS_DAIO_LINUX_OBJ)
++	@echo "Building plugin $@"
++	@$(SHLD_MODULE) $(VFS_DAIO_LINUX_OBJ)
++
+ bin/preopen.@SHLIBEXT@: $(BINARY_PREREQS) $(VFS_PREOPEN_OBJ)
+ 	@echo "Building plugin $@"
+ 	@$(SHLD_MODULE) $(VFS_PREOPEN_OBJ)
+--- a/source3/configure	2013-02-15 16:58:21.825832330 +0100
++++ b/source3/configure	2013-02-15 17:01:58.332745955 +0100
+@@ -39741,6 +39741,41 @@
+ 	fi
+ 
+ 
++	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking how to build vfs_daio_linux" >&5
++$as_echo_n "checking how to build vfs_daio_linux... " >&6; }
++	if test "$MODULE_vfs_daio_linux"; then
++		DEST=$MODULE_vfs_daio_linux
++	elif test "$MODULE_vfs" -a "$MODULE_DEFAULT_vfs_daio_linux"; then
++		DEST=$MODULE_vfs
++	else
++		DEST=$MODULE_DEFAULT_vfs_daio_linux
++	fi
++
++	if test x"$DEST" = xSHARED; then
++
++$as_echo "#define vfs_daio_linux_init samba_init_module" >>confdefs.h
++
++		VFS_MODULES="$VFS_MODULES "bin/daio_linux.$SHLIBEXT""
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: shared" >&5
++$as_echo "shared" >&6; }
++
++		string_shared_modules="$string_shared_modules vfs_daio_linux"
++	elif test x"$DEST" = xSTATIC; then
++		init_static_modules_vfs="$init_static_modules_vfs  vfs_daio_linux_init();"
++		decl_static_modules_vfs="$decl_static_modules_vfs extern NTSTATUS vfs_daio_linux_init(void);"
++		string_static_modules="$string_static_modules vfs_daio_linux"
++		VFS_STATIC="$VFS_STATIC \$(VFS_DAIO_LINUX_OBJ)"
++
++
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: static" >&5
++$as_echo "static" >&6; }
++	else
++	    string_ignored_modules="$string_ignored_modules vfs_daio_linux"
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: not" >&5
++$as_echo "not" >&6; }
++	fi
++
++
+ 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking how to build vfs_preopen" >&5
+ $as_echo_n "checking how to build vfs_preopen... " >&6; }
+ 	if test "$MODULE_vfs_preopen"; then

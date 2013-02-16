@@ -1,0 +1,11 @@
+--- libtirpc-0.2.2/src/Makefile.am.orig	2011-11-28 03:10:43.824658859 +0100
++++ libtirpc-0.2.2/src/Makefile.am	2011-11-28 03:11:01.923082622 +0100
+@@ -40,7 +40,7 @@
+ # release number of your package. This is an abuse that only fosters
+ # misunderstanding of the purpose of library versions."
+ #
+-libtirpc_la_LDFLAGS = -lnsl -lpthread -version-info 1:10:0
++libtirpc_la_LDFLAGS = -lpthread -version-info 1:10:0
+ 
+ libtirpc_la_SOURCES = auth_none.c auth_unix.c authunix_prot.c bindresvport.c clnt_bcast.c \
+         clnt_dg.c clnt_generic.c clnt_perror.c clnt_raw.c clnt_simple.c \
