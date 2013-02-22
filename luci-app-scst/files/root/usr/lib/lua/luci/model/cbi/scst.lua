@@ -18,7 +18,9 @@ s:option(Value, "name", translate("Name")).rmempty = true
 t = s:option(ListValue, "type", translate("Type"))
 t.default = "file"
 t:value("file", translate("Image file"))
-s:option(Value, "path", translate("Path")).rmempty = true
+f = s:option(Value, "path", translate("Path"))
+f.rmempty = true
+f.datatype = "file"
 b = s:option(ListValue, "blocksize", translate("Blocksize"), translate("Use 512 Byte for VMWare"))
 b.default = 512
 b:value("512", translate("512 Byte"))
@@ -33,5 +35,31 @@ l = s:option(DynamicList, "lun", translate("Lun"))
 m.uci:foreach("scst", "device", function(s)
 	l:value(s.name, s.name)                        
 end)
+
+a = s:option(Flag, "auth_in", translate("Authenticate initiator"))
+a.enabled="1"
+a.disabled="0"
+a.default="0"
+u = s:option(Value, "id_in", translate("ID"))
+u.rmempty = true
+u.datatype = "minlength(1)"
+u:depends("auth_in", "1")
+p = s:option(Value, "secret_in", translate("Secret"), translate("Min. 12 chars."))
+p.rmempty = true
+p.datatype = "minlength(12)"
+p:depends("auth_in", "1")
+
+a = s:option(Flag, "auth_out", translate("Initiator requires authentication"))
+a.enabled="1"
+a.disabled="0"
+a.default="0"
+u = s:option(Value, "id_out", translate("ID"))
+u.rmempty = true
+u.datatype = "minlength(1)"
+u:depends("auth_out", "1")
+p = s:option(Value, "secret_out", translate("Secret"), translate("Min. 12 chars."))
+p.rmempty = true
+p.datatype = "minlength(12)"
+p:depends("auth_out", "1")
 
 return m

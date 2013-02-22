@@ -25,9 +25,34 @@ add_target() {
 	
 	[ -d /sys/kernel/scst_tgt ] || start_service
 
-	[ -e /sys/kernel/scst_tgt/targets/iscsi/$id:$name ] || \
-		echo "add_target $id:$name" \
-			> /sys/kernel/scst_tgt/targets/iscsi/mgmt 
+	[ -e /sys/kernel/scst_tgt/targets/iscsi/$id:$name ] || {
+		local cmd
+		local auth_in
+		local auth_out
+		local user
+		local pwd
+
+		cmd="add_target $id:$name"
+
+		config_get auth_in  $1 auth_in  "0"
+		config_get auth_out $1 auth_out "0"
+
+		[ $auth_in -ne 0 ] && {
+			config_get user $1 id_in
+			config_get pwd  $1 secret_in
+
+			cmd="$cmd IncomingUser $user $pwd;"
+		}
+
+		[ $auth_out -ne 0 ] && {
+			config_get user $1 id_out
+			config_get pwd  $1 secret_out
+
+			cmd="$cmd OutgoingUser $user $pwd;"
+		}
+
+		echo $cmd > /sys/kernel/scst_tgt/targets/iscsi/mgmt
+	}
 
 	echo 1 >/sys/kernel/scst_tgt/targets/iscsi/$id:$name/enabled
 

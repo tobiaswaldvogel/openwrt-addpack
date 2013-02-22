@@ -10,7 +10,7 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=scst
-PKG_REV:=4725
+PKG_REV:=4767
 PKG_VER:=2.2.x
 PKG_VERSION:=$(PKG_VER)-$(PKG_REV)
 PKG_RELEASE:=1
