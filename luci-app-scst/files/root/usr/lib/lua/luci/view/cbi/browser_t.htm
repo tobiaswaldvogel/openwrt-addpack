@@ -1,0 +1,12 @@
+<% local v = self:cfgvalue(section) -%>
+<%+cbi/valueheader%>
+<table style="width: 100%">
+  <col />
+  <col width="16px" />
+  <tr style="width: 100%">
+    <td><input class="cbi-input-text" type="text"<%= attr("value", v) .. attr("name", cbid) .. attr("id", cbid) %> /></td>
+    <td><img class="cbi-image-button" src="<%=resource%>/cbi/folder.gif"
+         onclick="cbi_filebrowser('<%=cbid%>', '<%=luci.dispatcher.build_url("admin", "filebrowser")%>'<%=self.default_path and ", '"..self.default_path.."'"%>); return false;" /></td>
+  </tr>
+</table>
+<%+cbi/valuefooter%>

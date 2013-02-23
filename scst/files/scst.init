@@ -74,10 +74,12 @@ add_device() {
 	local type
 	local filename
 	local blocksize
+	local scsisn
 	config_get name $1 name
 	config_get type $1 type
 	config_get path $1 path
 	config_get blocksize $1 blocksize 512
+	config_get scsisn $1 scsisn
 
 	[ -e /sys/kernel/scst_tgt/devices/$name ] || {
 		[ $type == "file" ] && {
@@ -88,6 +90,11 @@ add_device() {
 
 			echo "2" >/sys/kernel/scst_tgt/devices/$name/threads_num
 		}
+	}
+
+	[ -n "$scsisn" ] && {
+		echo "$scsisn" > /sys/kernel/scst_tgt/devices/$name/usn
+		echo "$scsisn-$name" > /sys/kernel/scst_tgt/devices/$name/t10_dev_id
 	}
 
         devices="$devices $name"
