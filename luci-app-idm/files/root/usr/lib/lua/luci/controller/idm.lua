@@ -47,10 +47,9 @@ function action_user()
 	elseif (cur_act == "grprm") or (cur_act == "usrrm") or (cur_act == "hostrm") then
 		ld:delete(cur_obj)
 	elseif cur_act == "grpmodok" then
-		ld:modify(cur_obj, { '=', gidNumber = reqval("gid"), description = reqval("desc") })
+		grpmod(ld, cur_obj, reqval("gid"), reqval("desc"))
 	elseif cur_act == "grpaddok" then
-	        local ou = get_ou(ld, "Groups")
-		ld:add("cn=" ..  reqval("cn") .. "," .. ou, { objectClass = { "top", "posixGroup" }, gidNumber = reqval("gid"), description = reqval("desc") })
+		grpadd(ld, reqval("cn"), reqval("gid"), reqval("desc"))
 	elseif cur_act == "usrmodok" then
 		usrmod(ld, cur_obj, reqval("gn"), reqval("sn"), reqval("uidn"), reqval("gid"), reqval("kpn"), reqval("pw"), reqval("homedir"), reqval("shell"))
 	elseif cur_act == "usraddok" then
@@ -191,6 +190,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	local hostl = host:lower()
 	local hostu = host:upper()
 	local keytab  = "/etc/krb5.keytab"
+	local SID
 
 	dc = dns_domain:gsub("[\.](.*)", "")
 
@@ -262,18 +262,6 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
-	dn = "cn=users," .. groupou
-	l:write("Adding " .. dn .. " ... ")
-	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 100, description = "Users" })
-	l:write(msg .. "\n")
-	if not (rc == 0) then return 1 end
-
-	dn = "cn=computers," .. groupou
-	l:write("Adding " .. dn .. " ... ")
-	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup"}, gidNumber = 102, description = "Computers" })
-	l:write(msg .. "\n")
-	if not (rc == 0) then return 1 end
-
 	krb_container_dn = "cn=Kerberos," .. basedn
 	l:write("Creating Kerberos Realm container " .. krb_container_dn ..  " ... ")
 	rc, msg = ld:add (krb_container_dn, { objectClass = "krbContainer" })
@@ -304,6 +292,21 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	c:commit("samba")
 	os.execute("/etc/init.d/samba restart")
 	l:write("done\n")
+
+	SID = get_sambaSID(ld)
+	l:write("Creating well-known groups ... \n")
+
+	dn = "cn=users," .. groupou
+	l:write("&nbsp;&nbsp;Adding " .. dn .. " ... ")
+	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup", "sambaGroupMapping"}, gidNumber = 100, sambaSID = SID .. "-513", sambaGroupType = 2, displayName = "Domain users", description = "Domain users" })
+	l:write(msg .. "\n")
+	if not (rc == 0) then return 1 end
+
+	dn = "cn=computers," .. groupou
+	l:write("&nbsp;&nbsp;Adding " .. dn .. " ... ")
+	rc, msg = ld:add (dn, { objectClass = {"top", "posixGroup", "sambaGroupMapping"}, gidNumber = 102, sambaSID = SID .. "-515", sambaGroupType = 2, displayName = "Domain computers", description = "Domain computers" })
+	l:write(msg .. "\n")
+	if not (rc == 0) then return 1 end
 
 	l:write("Creating machine account for " .. host .. " ... ")
 	rc,msg,host_dn = hostadd(ld, host, host, 2000, 102, nil)
@@ -371,6 +374,33 @@ function get_sambaSID(ld)
                 return attrs["sambaSID"],attrs["sambaDomain"]
         end
 end
+
+function grpmod(ld, dn, gid, desc)
+	ld:modify(dn, { '=',
+		gidNumber = reqval("gid"),
+		sambaSID = get_sambaSID(ld) .. "-" .. reqval("gid"),
+		displayName = reqval("desc"),
+		description = reqval("desc")
+	})
+end
+
+function grpadd(ld, cn, gid, desc)
+	local ou = get_ou(ld, "Groups")
+	local dn = "cn=" ..  cn .. "," .. ou
+        local attrs = {}
+
+        attrs.objectClass       = { "top", "posixGroup", "sambaGroupMapping" }
+        attrs.cn                = cn
+        attrs.gidNumber         = gid
+	attrs.sambaSID		= get_sambaSID(ld) .. "-" .. gid
+        if (not desc) or (desc == "") then desc = cn end
+	attrs.description	= desc
+	attrs.displayName	= desc
+	attrs.sambaGroupType	= 2
+
+        local rc,msg = ld:add (dn, attrs)
+        return rc,msg,dn
+ end
 
 function usrmod(ld, dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
 	local rc, msg = ld:modify(dn, { '=',

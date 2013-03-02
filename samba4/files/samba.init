@@ -49,6 +49,8 @@ smb_header() {
 	}
 
 	[ -S /var/run/ldapi ] && {
+		echo  >>/var/etc/smb.conf -e "\tldapsam:trusted = yes"
+		echo  >>/var/etc/smb.conf -e "\tldapsam:editposix = yes"
 		echo  >>/var/etc/smb.conf -e "\tldap ssl = off"
 		echo  >>/var/etc/smb.conf -e "\tdomain logons = yes"
 		sed -i -e "s#passdb backend = \(.*\)#passdb backend = ldapsam:ldapi:///#g" \

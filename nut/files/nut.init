@@ -1,0 +1,18 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009 OpenWrt.org
+
+START=70
+PIDFILE_UPSD=/var/run/upsd.pid
+PIDFILE_UPSMON=/var/run/upsmon.pid
+
+start() {
+	mkdir -p /var/state/ups
+
+	/usr/sbin/upsd
+	/usr/sbin/upsmon
+}
+
+stop() {
+	[ -f $PIDFILE_UPSD ]   && kill $(cat $PIDFILE_UPSD)
+	[ -f $PIDFILE_UPSMON ] && kill $(cat $PIDFILE_UPSMON)
+}

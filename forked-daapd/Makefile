@@ -22,14 +22,14 @@ PKG_BUILD_DEPENDS:=libgpg-error libgcrypt libgdbm zlib libexpat libunistring \
 include $(INCLUDE_DIR)/package.mk
 
 define Package/forked-daapd
-SECTION:=sound
-CATEGORY:=Sound
-TITLE:=Improved iTunes server. Support for Apple Remote. Includes patch for iTunes 10.5 timeouts.
-MAINTAINER:=Espen Jürgensen <espenjurgensen+openwrt@gmail.com>
-URL:=http://www.jblache.org/projects/daapd/
-DEPENDS:=+libgpg-error +libgcrypt +libgdbm +zlib +libexpat +libunistring \
-	+libevent +libdaemon +libantlr3c +confuse +glib2 +alsa-lib +libffmpeg-full \
-	+mxml +libavl +avahi-daemon +libavahi-client +sqlite3-cli
+  SECTION:=multimedia
+  CATEGORY:=Multimedia
+  TITLE:=Improved iTunes server
+  MAINTAINER:=Espen Jürgensen <espenjurgensen+openwrt@gmail.com>
+  URL:=http://www.jblache.org/projects/daapd/
+  DEPENDS:=+libgpg-error +libgcrypt +libgdbm +zlib +libexpat +libunistring \
+	   +libevent +libdaemon +libantlr3c +confuse +glib2 +alsa-lib +libffmpeg-full \
+	   +mxml +libavl +avahi-daemon +libavahi-client +sqlite3-cli
 endef
 
 define Package/forked-daapd/conffiles

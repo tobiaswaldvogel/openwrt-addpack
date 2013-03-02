@@ -29,7 +29,7 @@
 	syslog = 2
 	use sendfile = yes
 	writeable = yes
-	vfs objects = dirsort posixacl
+	vfs objects = posixacl
 	aio read size = 0
 	aio write size = 0
 
