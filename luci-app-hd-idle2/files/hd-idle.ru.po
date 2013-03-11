@@ -1,0 +1,44 @@
+﻿msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Hard disk idle"
+msgstr "Состояние дисков"
+
+msgid "HD idle"
+msgstr "Состояние дисков"
+
+msgid "Spin down disks after a period of idle time."
+msgstr "Остановка дисков после определенного времени бездействия."
+
+msgid "Disk power state"
+msgstr "Состояние диска"
+
+msgid "Disk"
+msgstr "Диск"
+
+msgid "Power state"
+msgstr "Состояние"
+
+msgid "active"
+msgstr "работает"
+
+msgid "standby"
+msgstr "остановлен"
+
+msgid "Idle time"
+msgstr "Время бездействия"
+
+msgid "Unit"
+msgstr "Единица времени"
+
+msgid "Seconds"
+msgstr "Секунды"
+
+msgid "Minutes"
+msgstr "Минуты"
+
+msgid "Hours"
+msgstr "Часы"
+
+msgid "Days"
+msgstr "Дни"

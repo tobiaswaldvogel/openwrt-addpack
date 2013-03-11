@@ -6,6 +6,7 @@ PKG_RELEASE:=1
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_INSTALL_DIR:=$(PKG_BUILD_DIR)/ipkg-install
+PKG_BUILD_DEPENDS:=luci
 
 include $(INCLUDE_DIR)/package.mk
 

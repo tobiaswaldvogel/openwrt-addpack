@@ -1,0 +1,56 @@
+﻿msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Hard disk monitoring"
+msgstr "Контроль дисков"
+
+msgid "Monitors disks and raid arrays and sends an email in case of failure."
+msgstr "Контроль за дисками и raid массивами. В случае возникновении ошибки отправляет сообщение."
+
+msgid "Raid arrays"
+msgstr "Raid массив"
+
+msgid "Raid device"
+msgstr "Raid устройство"
+
+msgid "Disk status"
+msgstr "Состояние диска"
+
+msgid "Disk"
+msgstr "Диск"
+
+msgid "Temperature"
+msgstr "Температура"
+
+msgid "Enable monitoring"
+msgstr "Включить контроль"
+
+msgid "Threshold for temperature info"
+msgstr "Порог температуры для информации"
+
+msgid "Threshold for temperature warning"
+msgstr "Порог температуры для предупреждения"
+
+msgid "Notify options"
+msgstr "Параметры уведомления"
+
+msgid "Email address to notify"
+msgstr "Адрес электронной почты"
+
+msgid "Send test mail"
+msgstr "Отправить тестовое сообщение"
+
+msgid "Mail options"
+msgstr "Параметры почты"
+
+msgid "Mail server"
+msgstr "Сервер электронной почты"
+
+msgid "Sender address"
+msgstr "Адрес отправителя"
+
+msgid "User ID"
+msgstr "Имя пользователя"
+
+msgid "Use TLS"
+msgstr "Использовать TLS"

@@ -24,13 +24,14 @@ smb_header() {
 		done
 	)
 
-	local name workgroup description charset
+	local name workgroup description charset disablenb
 	local hostname="$(uci_get system.@system[0].hostname)"
 
 	config_get name        $1 name        "${hostname:-OpenWrt}"
 	config_get workgroup   $1 workgroup   "${hostname:-OpenWrt}"
 	config_get description $1 description "Samba on ${hostname:-OpenWrt}"
 	config_get charset     $1 charset     "UTF-8"
+	config_get disablenb   $1 disablenb   "0"
 
 	mkdir -p /var/etc
 	sed -e "s#|NAME|#$name#g" \
@@ -40,12 +41,19 @@ smb_header() {
 	    -e "s#|CHARSET|#$charset#g" \
 	    /etc/samba/smb.conf.template > /var/etc/smb.conf
 
+	GLOBAL_NAME=$name
+	GLOBAL_WORKGROUP=$workgroup
+	GLOBAL_DISABLENB=$disablenb
+
+	[ "$disablenb" == "1" ] && echo  >>/var/etc/smb.conf -e "\tdisable netbios = yes"
+
 	[ -f /etc/krb5.keytab ] && {
 		REALM=`klist -k /etc/krb5.keytab | awk 'FS="@" { if ($2 != "") { print $2; exit } }'`
 		echo  >>/var/etc/smb.conf -e "\tkerberos method = dedicated keytab"
 		echo  >>/var/etc/smb.conf -e "\tdedicated keytab file = /etc/krb5.keytab"
 		echo  >>/var/etc/smb.conf -e "\trealm = $REALM"
 		sed -i -e "s#workgroup = \(.*\)#workgroup = $REALM#g" /var/etc/smb.conf
+		global_workgroup=$REALM
 	}
 
 	[ -S /var/run/ldapi ] && {
@@ -105,10 +113,12 @@ start() {
 	config_foreach smb_header samba
 	config_foreach smb_add_share sambashare
 	service_start /usr/sbin/smbd -D
-	service_start /usr/sbin/nmbd -D
+	[ "$GLOBAL_DISABLENB" != "1" ] && service_start /usr/sbin/nmbd -D
+	[ -f /usr/sbin/wsdd ]          && service_start /usr/sbin/wsdd -n $GLOBAL_NAME -w $GLOBAL_WORKGROUP
 }
 
 stop() {
 	service_stop /usr/sbin/smbd
 	service_stop /usr/sbin/nmbd
+	[ -f /usr/sbin/wsdd ]          && service_stop /usr/sbin/wsdd
 }

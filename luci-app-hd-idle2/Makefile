@@ -42,6 +42,7 @@ grep -q 'hd-idle' $${IPKG_INSTROOT}/etc/config/ucitrack 2>/dev/null
 	echo "config hd-idle" >>$${IPKG_INSTROOT}/etc/config/ucitrack
 	echo "       option init hd-idle" >>$${IPKG_INSTROOT}/etc/config/ucitrack
 } 
+exit 0
 endef
 
 $(eval $(call BuildPackage,luci-app-hd-idle2))

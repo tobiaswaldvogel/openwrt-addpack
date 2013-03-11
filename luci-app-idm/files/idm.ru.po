@@ -1,0 +1,29 @@
+﻿msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Identities"
+msgstr "Идентификация"
+
+msgid "User and Groups"
+msgstr "Пользователи и Группы"
+
+msgid "Group"
+msgstr "Группа"
+
+msgid "User"
+msgstr "Пользователь"
+
+msgid "Computer"
+msgstr "Компьютер"
+
+msgid "Home dir"
+msgstr "Домашний каталог"
+
+msgid "Shell"
+msgstr "Оболочка"
+
+msgid "Initialize"
+msgstr "Инициализация"
+
+msgid "Warning! Initializing IDM will erase all existing objects!"
+msgstr "Внимание! В процессе инициализации IDM будут удалены все существующие объекты!"

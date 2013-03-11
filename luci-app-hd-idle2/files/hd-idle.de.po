@@ -1,0 +1,44 @@
+﻿msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Hard disk idle"
+msgstr "Festplattenabschaltung"
+
+msgid "HD idle"
+msgstr "Festplattenabschaltung"
+
+msgid "Spin down disks after a period of idle time."
+msgstr "Automatische Festplattenabschaltung bei Nichtbenutzung"
+
+msgid "Disk power state"
+msgstr "Festplattenstatus"
+
+msgid "Disk"
+msgstr "Festplatte"
+
+msgid "Power state"
+msgstr "Status"
+
+msgid "active"
+msgstr "aktiv"
+
+msgid "standby"
+msgstr "abgeschaltet"
+
+msgid "Idle time"
+msgstr "Wartezeit für Abschaltung"
+
+msgid "Unit"
+msgstr "Einheit"
+
+msgid "Seconds"
+msgstr "Sekunden"
+
+msgid "Minutes"
+msgstr "Minuten"
+
+msgid "Hours"
+msgstr "Stunden"
+
+msgid "Days"
+msgstr "Tage"

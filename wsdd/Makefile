@@ -16,10 +16,11 @@ PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 include $(INCLUDE_DIR)/package.mk
 
 define Package/wsdd
-  SECTION:=utils
-  CATEGORY:=Utilities
+  SECTION:=net
+  CATEGORY:=Network
   TITLE:=WS Discovery daemon
-  DEPENDS:=+libubus +libubox +libuuid +libpthread
+  DEPENDS:=+libuuid
+  MAINTAINER:=Tobias Waldvogel <tobias.waldvogel@gmail.com>
 endef
 
 define Build/Prepare
@@ -31,17 +32,13 @@ define Build/Compile
 	$(TARGET_CC) \
 		-I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) \
 		-L$(STAGING_DIR)/usr/lib \
-		-lubus -lubox -l pthread -l:libuuid.so.1 \
+		-l:libuuid.so.1 \
 		-o $(PKG_BUILD_DIR)/$(PKG_NAME) $(PKG_BUILD_DIR)/$(PKG_NAME).c
 endef
 
 define Package/wsdd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(PKG_NAME) $(1)/usr/sbin/
-#	$(INSTALL_DIR) $(1)/etc/config
-#	$(INSTALL_DATA) ./files/hd-idle.config $(1)/etc/config/hd-idle
-#	$(INSTALL_DIR) $(1)/etc/init.d
-#	$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
 endef
 
 $(eval $(call BuildPackage,wsdd))

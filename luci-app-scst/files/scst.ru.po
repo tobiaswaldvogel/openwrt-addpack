@@ -1,0 +1,32 @@
+﻿msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Devices"
+msgstr "Устройства"
+
+msgid "You can create new image files with: fallocate -l &lt;size e.g. 16GB&gt; &lt;image file&gt;"
+msgstr "Вы можете создавать новые файлы образа с помощью: fallocate -l &lt;размер, например: 16GB&gt; &lt;nфайл образа&gt;"
+
+msgid "Blocksize"
+msgstr "Размер блока"
+
+msgid "Use 512 Byte for VMWare"
+msgstr "Для VMWare использовать 512 Байт"
+
+msgid "8 hex digits"
+msgstr "8 шестнадцатеричных цифр"
+
+msgid "Targets"
+msgstr "Конечные объекты (Targets)"
+
+msgid "Authenticate initiator"
+msgstr "Аутентификация инициатора"
+
+msgid "Initiator requires authentication"
+msgstr "Инициатор требующий аутентификации"
+
+msgid "Secret"
+msgstr "Секрет"
+
+msgid "Min. 12 chars."
+msgstr "Минимум 12 символов."

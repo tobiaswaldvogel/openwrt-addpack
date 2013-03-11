@@ -48,6 +48,7 @@ grep -q 'hd-mon' $${IPKG_INSTROOT}/etc/config/ucitrack 2>/dev/null
 	echo "config hd-mon" >>$${IPKG_INSTROOT}/etc/config/ucitrack
 	echo "       option init hd-mon" >>$${IPKG_INSTROOT}/etc/config/ucitrack
 } 
+exit 0
 endef
 
 $(eval $(call BuildPackage,luci-app-hd-mon))

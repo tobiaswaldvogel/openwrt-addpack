@@ -1,5 +1,7 @@
 require "lualdap"
 require "math"
+require "md4"
+require "sha1"
 
 local reqval = luci.http.formvalue
 
@@ -191,6 +193,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	local hostu = host:upper()
 	local keytab  = "/etc/krb5.keytab"
 	local SID
+	local timeout
 
 	dc = dns_domain:gsub("[\.](.*)", "")
 
@@ -254,11 +257,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 
 	adm_dn = "cn=Manager," .. srvuserou
 	l:write("Adding " .. adm_dn .. " ... ")
-	rc, msg = ld:add (adm_dn, { objectClass = "inetOrgPerson", sn = "LDAP Manager" })
-	l:write(msg .. "\n")
-	if not (rc == 0) then return 1 end
-	l:write("Setting password ... ")
-	rc, msg = ld:modify(adm_dn, { '=', userPassword = luci.sys.exec("slappasswd -s " .. ldappw) })
+	rc, msg = ld:add (adm_dn, { objectClass = "inetOrgPerson", sn = "LDAP Manager", userPassword = "{SHA}" .. base64(sha1.digest(ldappw, true)) })
 	l:write(msg .. "\n")
 	if not (rc == 0) then return 1 end
 
@@ -291,9 +290,17 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	c:save("samba")
 	c:commit("samba")
 	os.execute("/etc/init.d/samba restart")
+
+	timeout = 10
+	while timeout > 0 do
+		SID = get_sambaSID(ld)
+		if SID ~= "" then break end
+		os.execute("sleep 1")
+		timeout = timeout - 1
+		if timeout == 0 then return 1 end
+	end
 	l:write("done\n")
 
-	SID = get_sambaSID(ld)
 	l:write("Creating well-known groups ... \n")
 
 	dn = "cn=users," .. groupou
@@ -342,12 +349,59 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	return 0
 end
 
+function base64(data)
+	local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+	return ((data:gsub('.', function(x)
+		local r,b='',x:byte()
+		for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
+		return r;
+	end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+		if (#x < 6) then return '' end
+		local c=0
+		for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
+		return b:sub(c+1,c+1)
+	end)..({ '', '==', '=' })[#data%3+1])
+end
+
 function get_defaultNamingContext(ld)
 	local dn, attrs
 
 	for dn, attrs in ld:search { attrs = { "namingContexts" }, scope="b" } do
 		return attrs["namingContexts"];
 	end
+end
+
+function NT4_hash(pwd)
+	local hash = md4.new()
+	local i,n,c1,c2
+
+	i = 1
+	while i <= pwd:len() do
+		n = pwd:byte(i)
+
+		if n < 0x80 then
+			c2 = 0
+			c1 = n
+		elseif (n >= 0xc0) and (n < 0xe0) then
+			c2 = math.floor((n - 0xc0) / 0x04)
+			c1 = (n % 0x04) * 0x40
+			i = i + 1
+			c1 = c1 + (pwd:byte(i) % 0x40)
+		elseif (n >= 0xe0) and (n < 0xf0) then
+			c2 = (n - 0xe0) * 0x10
+			i = i + 1
+			n = pwd:byte(i)
+			c2 = c2 + (math.floor(n / 0x04) % 0x10)
+			c1 = (n % 0x04) * 0x40
+			i = i +1
+			c1 = c1 + (pwd:byte(i) % 0x40)
+		end
+		hash:update(string.char(c1))
+		hash:update(string.char(c2))
+		i = i + 1
+	end
+	return hash:digest():upper()
 end
 
 function get_ou(ld, name)
@@ -371,17 +425,19 @@ function get_sambaSID(ld)
         local dn, attrs
 
         for dn, attrs in ld:search { attrs = { "sambaSID", "sambaDomainName" }, base = basedn, filter="objectClass=sambaDomain", scope="s" } do
-                return attrs["sambaSID"],attrs["sambaDomain"]
+                return attrs["sambaSID"],attrs["sambaDomainName"]
         end
+	return "", ""
 end
 
 function grpmod(ld, dn, gid, desc)
-	ld:modify(dn, { '=',
-		gidNumber = reqval("gid"),
-		sambaSID = get_sambaSID(ld) .. "-" .. reqval("gid"),
-		displayName = reqval("desc"),
-		description = reqval("desc")
-	})
+	local attrs = { '=' }
+
+	attrs["gidNumber"]	= gid
+	attrs["sambaSID"]	= get_sambaSID(ld) .. "-" .. gid
+	attrs["displayName"]	= desc
+	attrs["description"]	= desc
+	ld:modify(dn, attrs)
 end
 
 function grpadd(ld, cn, gid, desc)
@@ -389,64 +445,76 @@ function grpadd(ld, cn, gid, desc)
 	local dn = "cn=" ..  cn .. "," .. ou
         local attrs = {}
 
-        attrs.objectClass       = { "top", "posixGroup", "sambaGroupMapping" }
-        attrs.cn                = cn
-        attrs.gidNumber         = gid
-	attrs.sambaSID		= get_sambaSID(ld) .. "-" .. gid
+        attrs["objectClass"]	= { "top", "posixGroup", "sambaGroupMapping" }
+        attrs["cn"]		= cn
+        attrs["gidNumber"]	= gid
+	attrs["sambaSID"]	= get_sambaSID(ld) .. "-" .. gid
         if (not desc) or (desc == "") then desc = cn end
-	attrs.description	= desc
-	attrs.displayName	= desc
-	attrs.sambaGroupType	= 2
+	attrs["description"]	= desc
+	attrs["displayName"]	= desc
+	attrs["sambaGroupType"]	= 2
 
-        local rc,msg = ld:add (dn, attrs)
+        local rc,msg = ld:add(dn, attrs)
         return rc,msg,dn
  end
 
 function usrmod(ld, dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)
-	local rc, msg = ld:modify(dn, { '=',
-		givenName = gn or " ",
-		sn = sn or " ",
-		uidNumber = uidn,
-		gidNumber = gid,
-		krbPrincipalName = kpn,
-		homeDirectory = homedir,
-		loginShell = shell
-	})
+	local attrs = { '=' }
+
+	attrs["uidNumber"]        = uidn
+	attrs["gidNumber"]        = gid
+	if (not gn) or (gn == "") then gn = uid end
+	attrs["givenName"]        = gn
+	if (not sn) or (sn == "") then sn = uid end
+	attrs["sn"]               = sn
+	attrs["homeDirectory"]    = homedir
+	attrs["loginShell"]       = shell
+	attrs["krbPrincipalName"] = kpn
+
+	if pw and pw:len() > 0 then
+		attrs["sambaNTPassword"]  = NT4_hash(pw)
+		attrs["sambaPwdLastSet"]  = os.time()
+		attrs["userPassword"]     = "{SHA}" .. base64(sha1.digest(pw, true))
+	end
+
+	local rc, msg = ld:modify(dn, attrs)
 
 	if pw:len() > 0 then
-		local uid
-
-		for dn, attrs in ld:search { attrs = { "uid" }, base = dn, scope="b" } do
-			uid = attrs["uid"]
-		end
-		if uid then
-			changepw(ld, dn, kpn, uid, pw)
-		end
+		luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
 	end
 end
 
 function usradd(ld, uid, gn, sn, uidn, gid, pw, homedir, shell)
 	local ou = get_ou(ld, "Users")
 	local realm = get_realm(ld)
+	local sid, domain = get_sambaSID(ld)
 	local dn = "uid=" .. uid .. "," .. ou
 	local kpn = uid .. "@" .. realm
 	local attrs = {}
 
-	attrs.objectClass	= { "inetOrgPerson", "posixAccount", "krbPrincipalAux" }
-	attrs.cn		= uid
-	attrs.uidNumber		= uidn
-	attrs.gidNumber		= gid
+	attrs["objectClass"]		= { "inetOrgPerson", "posixAccount", "krbPrincipalAux", "sambaSamAccount" }
+	attrs["cn"]			= uid
+	attrs["uidNumber"]		= uidn
+	attrs["gidNumber"]		= gid
 	if (not gn) or (gn == "") then gn = uid end
-	attrs.givenName		= gn
+	attrs["givenName"]		= gn
 	if (not sn) or (sn == "") then sn = uid end
-	attrs.sn		= sn
-	attrs.homeDirectory	= homedir
-	attrs.loginShell	= shell
-	attrs.krbPrincipalName	= kpn
+	attrs["sn"]			= sn
+	attrs["homeDirectory"]		= homedir
+	attrs["loginShell"]		= shell
+	attrs["krbPrincipalName"]	= kpn
+	attrs["sambaAcctFlags"]		= "[U          ]"
+	attrs["sambaSID"]		= sid .. "-" .. uidn + 32768
+	attrs["sambaDomainName"]	= domain
+	if pw and pw:len() > 0 then
+		attrs["sambaNTPassword"]	= NT4_hash(pw)
+		attrs["sambaPwdLastSet"]	= os.time()
+		attrs["userPassword"]		= "{SHA}" .. base64(sha1.digest(pw, true))
+	end
 
 	local rc,msg = ld:add (dn, attrs)
 	if (rc == 0) then
-		changepw(ld, dn, kpn, uid, pw)
+		luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
 	end
 	return rc,msg,dn
 end
@@ -454,10 +522,16 @@ end
 function hostmod(ld, dn, desc, uidn, gid, pw, kpn)
 	local attrs = { '=' }
 
-	attrs.description	= desc or ""
-	attrs.uidNumber		= uidn
-	attrs.gidNumber		= gid
-	if kpn and not (kpn == "") then attrs.krbPrincipalName = kpn end
+	attrs["description"]	= desc or ""
+	attrs["uidNumber"]	= uidn
+	attrs["gidNumber"]	= gid
+	if kpn and not (kpn == "") then
+		 attrs["krbPrincipalName"] = kpn
+	end
+	if pw and pw:len() > 0 then
+		attrs["sambaNTPassword"]  = NT4_hash(pw)
+		attrs["sambaPwdLastSet"]  = os.time()
+	end
 
 	local rc, msg = ld:modify(dn, attrs)
 
@@ -468,16 +542,15 @@ function hostmod(ld, dn, desc, uidn, gid, pw, kpn)
 				if type(kpn) == "table" then kpn = kpn[1] end
 			end
 		end
-		rc,msg = change_krb_pw(kpn, pw)
+		luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
 	end
-
 	return rc,msg
 end
 
 function hostadd(ld, uid, desc, uidn, gid, pw)
 	local ou = get_ou(ld, "Computers")
 	local realm = get_realm(ld)
-	local sid,smb_domain = get_sambaSID(ld)
+	local sid, domain = get_sambaSID(ld)
 	local dn = "uid=" .. uid .. "$," .. ou
 	local kpn     = "host/" .. uid:lower() .. "." .. realm:lower() .. "@" .. realm
 	local attrs = {}
@@ -490,20 +563,25 @@ function hostadd(ld, uid, desc, uidn, gid, pw)
 		desc = uid
 	end
 
-	attrs.objectClass		= { "top", "account", "posixAccount", "krbPrincipalAux", "sambaSAMAccount" }
-	attrs.cn			= uid .. "$"
-	attrs.uid			= uid .. "$"
-	attrs.uidNumber			= uidn
-	attrs.gidNumber			= gid
-	attrs.homeDirectory		= "/dev/null"
-	attrs.sambaSID			= sid
-	attrs.sambaDomainName	= smb_domain
-	attrs.krbPrincipalName	= kpn
-	attrs.description		= desc
+	attrs["objectClass"]		= { "top", "account", "posixAccount", "krbPrincipalAux", "sambaSAMAccount" }
+	attrs["cn"]			= uid .. "$"
+	attrs["uid"]			= uid .. "$"
+	attrs["uidNumber"]		= uidn
+	attrs["gidNumber"]		= gid
+	attrs["homeDirectory"]		= "/dev/null"
+	attrs["krbPrincipalName"]	= kpn
+	attrs["description"]		= desc
+	attrs["sambaAcctFlags"]		= "[W          ]"
+	attrs["sambaNTPassword"]	= NT4_hash(pw)
+	attrs["sambaSID"]    		= sid .. "-" .. uidn + 32768
+	attrs["sambaDomainName"]	= domain
+	attrs["sambaPwdLastSet"]	= os.time()
 	
 	local rc,msg = ld:add (dn, attrs)
 
-	if rc == 0 then change_krb_pw(kpn, pw) end
+	if rc == 0 then
+		luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
+	end
 	return rc,msg,dn
 end
 
@@ -519,24 +597,3 @@ function rnd_pw(len)
 	until string.len(pass) >= len
 	return pass
 end
-
-function change_krb_pw(kpn, pw)
-	return luci.sys.exec("kadmin.local -q \"cpw -pw " .. pw .. " " .. kpn .. "\"")
-end
-
-function changepw(ld, dn, kpn, uid, pw)
-	local rc, msg
-
-	change_krb_pw(kpn, pw)
-
-	--[[ Samba pw ]]--
-	tmppwfile = "/tmp/userpw"
-	nixio.fs.writefile(tmppwfile, pw .. "\n" .. pw .. "\n")
-	smbpwadd = "smbpasswd -s -a " .. uid .. "<" .. tmppwfile
-	luci.sys.exec(smbpwadd)
-	nixio.fs.remove(tmppwfile)
-
-	 --[[ LDAP pw ]]--
-	rc, msg = ld:modify(dn, { '=', userPassword = luci.sys.exec("slappasswd -s " .. pw) })
-end
-

@@ -1,3 +1,27 @@
+/*
+ * wsdd.c - WS Discovery and LLMNR daemon
+ *
+ * Copyright (c) 2013 Tobias Waldvogel.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+/*
+ * Anounces a device to Windows via WSD provides name resoulution via LLMNR
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +34,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -18,227 +43,66 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 
 #include <time.h>
 #include <pthread.h>
 #include <uuid/uuid.h>
 #include <libubus.h>
-
-#define WSD_PORT (3702)
+#include <signal.h>
+ 
+#define LLMNR_PORT 5355
+#define LLMNR_MCAST_ADDR ("224.0.0.252")
+#define WSD_PORT 3702
+#define WSD_HTTP_PORT  WSD_PORT
 #define WSD_MCAST_ADDR ("239.255.255.250")
+#define DNS_TYPE_A 1
 
-static const char wsd_hello[] = "Hello";
-static const char wsd_bye[] = "Bye";
-static const char wsd_resolve[] = "Resolve";
-static const char wsd_act_prefix[] = "http://schemas.xmlsoap.org/ws/2005/04/discovery/";
-static const char wsd_header[] =
-  "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-  "<soap:Envelope "
-     "xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" "
-     "xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" "
-     "xmlns:wsd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" "
-     "xmlns:wsdp=\"http://schemas.xmlsoap.org/ws/2006/02/devprof\" "
-     "xmlns:pub=\"http://schemas.microsoft.com/windows/pub/2005/07\">"
-    "<soap:Header>";
-static const char wsd_msg[] =
-  "%s"
-      "<wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To>"
-      "<wsa:Action>%s%s</wsa:Action>"
-      "<wsa:MessageID>urn:uuid:%s</wsa:MessageID>"
-      "<wsd:AppSequence InstanceId=\"%d\" SequenceId=\"urn:uuid:%s\" MessageNumber=\"%d\" />"
-    "</soap:Header>"
-    "<soap:Body>"
-      "<wsd:%s>"
-        "<wsa:EndpointReference>"
-        "<wsa:Address>%s</wsa:Address>"
-        "</wsa:EndpointReference>"
-        "<wsd:Types>%s</wsd:Types>"
-        "<wsd:MetadataVersion>2</wsd:MetadataVersion>"
-      "</wsd:%s>"
-    "</soap:Body>"
-  "</soap:Envelope>";
-static const char wsd_match[] =
-  "%s"
-      "<wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>"
-      "<wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches</wsa:Action>"
-      "<wsa:MessageID>urn:uuid:%s</wsa:MessageID>"
-      "<wsa:RelatesTo>%s</wsa:RelatesTo>"
-      "<wsd:AppSequence InstanceId=\"%d\" SequenceId=\"urn:uuid:%s\" MessageNumber=\"%d\" />"
-   "</soap:Header>"
-   "<soap:Body>"
-      "<wsd:ResolveMatches>"
-         "<wsd:ResolveMatch>"
-            "<wsa:EndpointReference>"
-               "<wsa:Address>%s</wsa:Address>"
-            "</wsa:EndpointReference>"
-            "<wsd:Types>wsdp:Device pub:Computer</wsd:Types>"
-            "<wsd:XAddrs>http://192.168.3.32/wsd/</wsd:XAddrs>"
-            "<wsd:MetadataVersion>2</wsd:MetadataVersion>"
-         "</wsd:ResolveMatch>"
-      "</wsd:ResolveMatches>"
-    "</soap:Body>"
-  "</soap:Envelope>";
+#define MAX_CLIENTS	29
+#define WSD_HTTP_SOCK	0
+#define WSD_UDP_SOCK	1
+#define LLMNR_UDP_SOCK	2
 
-static const char wsd_addr[]  = ":Address>";
-static const char wsd_msgid[] = ":MessageID>";
-static const char wsd_body[]  = ":Body>";
+static const char wsd_act_hello[] = "Hello";
+static const char wsd_act_bye[] = "Bye";
+static const char wsd_act_resolve[] = "Resolve";
+static const char wsd_act_resolve_matches[] = "ResolveMatches";
+static const char wsd_act_probe[] = "Probe";
+static const char wsd_act_probe_matches[] = "ProbeMatches";
+static const char wsd_act_get[] = "Get";
+static const char wsd_act_get_response[] = "GetResponse";
+static const char wsd_device[] = "wsdp:Device pub:Computer";
 
-/* function prototypes */
-void	daemonize(void);
-void	wsdd_log(int priority, const char* format, ...);
-int	wsdd_ubus_init(const char *path);
+static const char wsd_discovery[] = "http://schemas.xmlsoap.org/ws/2005/04/discovery/";
+static const char wsd_transfer[] = "http://schemas.xmlsoap.org/ws/2004/09/transfer/";
+
+static const char wsd_to_anon[] = "http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous";
+static const char wsd_to_discovery[] = "urn:schemas-xmlsoap-org:ws:2005:04:discovery";
+
+static const char wsd_addr[]   = ":Address>";
+static const char wsd_msgid[]  = ":MessageID>";
+static const char wsd_body[]   = ":Body>";
+static const char wsd_types[]  = ":Types>";
 
 /* global/static variables */
-int loglevel = LOG_INFO;
-int asdaemon = 1;
+int	loglevel = LOG_ERR;
+int 	asdaemon = 1;
+int	terminate = 0;
+char	endpoint[48];
+char 	sequence[48];
+int	instance_id;
+int	msg_no = 1;
 
-int wsd_sock;
-struct sockaddr_in mcast_addr;
-char endpoint[48];
-int instance_id;
+/* Variable for computer device */
+char	cd_name[128];
+char	cd_workgroup[128] = "WORKGROUP";
+char	cd_friendly_name[128] = "wsdd enabled device";
+char	cd_url[256] = "http://specs.xmlsoap.org/ws/2006/02/devprof";
+char	cd_manufacturer[128] = "wsdd";
+char	cd_model[128] = "wsdd";
+char	cd_serial[32] = "1";
+char	cd_firmware[16] = "1.0";
 
-static struct ubus_context *ctx = NULL;
-static const char *ubus_path;
-
-// ubus call wsdd add '{ "service": "wsdp:Device pub:Computer" }'
-
-static const struct blobmsg_policy wsdd_policy[] = {
-	[0] = { .name = "service", .type = BLOBMSG_TYPE_STRING },
-};
-
-static int
-wsdd_handle_add(struct ubus_context *ctx, struct ubus_object *obj,
-		struct ubus_request_data *req, const char *method,
-		struct blob_attr *msg)
-{
-	struct blob_attr *tb[1];
-	char *service;
-	char buffer[8192];
-	int len;
-	char app_seq[37], msg_id[37];
-        uuid_t uu;
-
-	wsdd_log(LOG_INFO, "add");
-	blobmsg_parse(wsdd_policy, ARRAY_SIZE(wsdd_policy), tb, blob_data(msg), blob_len(msg));
-	
-	if (!tb[0])
-		return 0;
-	
-	service = blobmsg_data(tb[0]);
-
-	wsdd_log(LOG_INFO, "Received %s %s", method, service);
-
-	uuid_generate_time(uu);
-	uuid_unparse(uu, app_seq);
-	uuid_generate_time(uu);
-	uuid_unparse(uu, msg_id);
-	len = snprintf(buffer, sizeof(buffer), wsd_msg, wsd_header, wsd_act_prefix, wsd_hello, msg_id, instance_id, app_seq, 1, wsd_hello, endpoint, service, wsd_hello);
-	
-	if (sendto(wsd_sock, buffer, len, 0, (const struct sockaddr*)&mcast_addr, sizeof(mcast_addr)) == -1)
-		wsdd_log(LOG_ERR, "sendto() failed");
-	return 0;
-}
-
-static int
-wsdd_handle_remove(struct ubus_context *ctx, struct ubus_object *obj,
-		     struct ubus_request_data *req, const char *method,
-		     struct blob_attr *msg)
-{
-	struct blob_attr *tb[1];
-	char *msgstr = "(unknown)";
-	char buffer[8192];
-	int len;
-	char uu_str[37];
-        uuid_t uu;
-	
-	wsdd_log(LOG_INFO, "add");
-	blobmsg_parse(wsdd_policy, ARRAY_SIZE(wsdd_policy), tb, blob_data(msg), blob_len(msg));
-	
-	if (tb[0])
-		msgstr = blobmsg_data(tb[0]);
-
-	wsdd_log(LOG_INFO, "Received %s %s", method, msgstr);
-
-	uuid_generate_time(uu);
-	uuid_unparse(uu, uu_str);
-	len = snprintf(buffer, sizeof(buffer), wsd_msg, wsd_bye, uu_str, wsd_bye, endpoint, "wsdp:Device pub:Computer", wsd_bye);
-
-	if (sendto(wsd_sock, buffer, len, 0, (const struct sockaddr*)&mcast_addr, sizeof(mcast_addr)) == -1)
-		wsdd_log(LOG_ERR, "sendto() failed");
-
-	wsdd_log(LOG_INFO, buffer);
-	return 0;
-}
-
-static struct ubus_method main_object_methods[] = {
-	UBUS_METHOD("add",     wsdd_handle_add,    wsdd_policy),
-	UBUS_METHOD("remove",  wsdd_handle_remove, wsdd_policy),
-};
-
-static struct ubus_object_type main_object_type =
-	UBUS_OBJECT_TYPE("wsdd", main_object_methods);
-
-static struct ubus_object main_object = {
-	.name = "wsdd",
-	.type = &main_object_type,
-	.methods = main_object_methods,
-	.n_methods = ARRAY_SIZE(main_object_methods),
-};
-
-void wsdd_ubus_add_fd(void)
-{
-	ubus_add_uloop(ctx);
-#ifdef FD_CLOEXEC
-	fcntl(ctx->sock.fd, F_SETFD, fcntl(ctx->sock.fd, F_GETFD) | FD_CLOEXEC);
-#endif
-}
-
-void wsdd_ubus_reconnect_timer(struct uloop_timeout *timeout)
-{
-	static struct uloop_timeout retry = {
-		.cb = wsdd_ubus_reconnect_timer,
-	};
-	int t = 2;
-
-	if (ubus_reconnect(ctx, ubus_path) != 0) {
-		wsdd_log(LOG_INFO, "failed to reconnect, trying again in %d seconds", t);
-		uloop_timeout_set(&retry, t * 1000);
-		return;
-	}
-
-	wsdd_log(LOG_INFO, "reconnected to ubus, new id: %08x", ctx->local_id);
-	wsdd_ubus_add_fd();
-}
-
-void wsdd_ubus_connection_lost(struct ubus_context *ctx)
-{
-	wsdd_ubus_reconnect_timer(NULL);
-}
-
-int wsdd_ubus_init(const char *path)
-{
-	int ret;
-
-	uloop_init();
-	ubus_path = path;
-
-	ctx = ubus_connect(path);
-	if (!ctx)
-		return -EIO;
-
-	wsdd_log(LOG_DEBUG, "connected as %08x", ctx->local_id);
-	ctx->connection_lost = wsdd_ubus_connection_lost;
-	wsdd_ubus_add_fd();
-
-	ret = ubus_add_object(ctx, &main_object);
-	if (ret != 0)
-		wsdd_log(LOG_INFO, "Failed to publish object: %s", ubus_strerror(ret));
-
-	ubus_add_uloop(ctx);
-	return ret;
-}
-
-/* become a daemon */
 void daemonize(void)
 {
 	FILE *fp;
@@ -301,6 +165,7 @@ void wsdd_log(int priority, const char* format, ...) {
 		fprintf(stderr, "%s\n", printbuf);
 }
 
+/* Find xml tag value */
 char* get_tag_value(char *xml, const char *tag, unsigned int taglen, unsigned int *len)
 {
 	char *val, *end;
@@ -319,104 +184,448 @@ char* get_tag_value(char *xml, const char *tag, unsigned int taglen, unsigned in
 	return val;
 }
 
-void match_resolve(const struct sockaddr* sa, unsigned int sa_len, char *src_msgid, char *body)
+int gen_soap_header(char *buffer, int *len, const char *to, 
+				const char* action_pre, const char *action, const char *relates, int http)
 {
+	static const char wsd_soap_header_start[] =
+		"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+		"<soap:Envelope "
+			"xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\" "
+			"xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/08/addressing\" "
+			"xmlns:wsd=\"http://schemas.xmlsoap.org/ws/2005/04/discovery\" "
+			"xmlns:wsx=\"http://schemas.xmlsoap.org/ws/2004/09/mex\" "
+			"xmlns:wsdp=\"http://schemas.xmlsoap.org/ws/2006/02/devprof\" "
+			"xmlns:un0=\"http://schemas.microsoft.com/windows/pnpx/2005/10\" "
+			"xmlns:pub=\"http://schemas.microsoft.com/windows/pub/2005/07\">"
+		"<soap:Header>"
+			"<wsa:To>%s</wsa:To>"
+			"<wsa:Action>%s%s</wsa:Action>"
+			"<wsa:MessageID>urn:uuid:%s</wsa:MessageID>";
+	static const char wsd_soap_header_relates[] =
+			"<wsa:RelatesTo>%s</wsa:RelatesTo>";
+	static const char wsd_soap_header_seq[] =
+			"<wsd:AppSequence InstanceId=\"%d\" SequenceId=\"%s\" MessageNumber=\"%d\" />";
+	static const char wsd_soap_header_end[] =
+		"</soap:Header>";
+			
+	char	msg_id[37];
+	uuid_t	uu;
+	int		ret_len;
+
+	uuid_generate_time(uu);
+	uuid_unparse(uu, msg_id);
+
+	ret_len = snprintf(buffer, *len, wsd_soap_header_start, to, action_pre, action, msg_id);
+	if (ret_len >= *len)
+		return -1;
+
+	if (relates) {
+		ret_len += snprintf(buffer+ret_len, (*len)-ret_len, wsd_soap_header_relates, relates);
+		if (ret_len >= *len)
+			return -1;
+	}
+	
+	if (!http) {
+		ret_len += snprintf(buffer+ret_len, (*len)-ret_len, wsd_soap_header_seq,
+				instance_id, sequence, msg_no++);
+		if (ret_len >= *len)
+			return -1;
+	}
+
+	ret_len += snprintf(buffer+ret_len, (*len)-ret_len, wsd_soap_header_end);
+	*len = ret_len;
+	return 0;
+}
+
+int action_hello(char* out, int *out_len, const char* service, int http)
+{
+	static const char wsd_hello[] =
+		"<soap:Body>"
+		  "<wsd:Hello>"
+			"<wsa:EndpointReference>"
+			"<wsa:Address>%s</wsa:Address>"
+			"</wsa:EndpointReference>"
+			"<wsd:Types>%s</wsd:Types>"
+			"<wsd:MetadataVersion>2</wsd:MetadataVersion>"
+		  "</wsd:Hello>"
+		"</soap:Body>"
+	"</soap:Envelope>";
+
+	int		ret_len;
+
+	ret_len = *out_len;
+	if (gen_soap_header(out, &ret_len, wsd_to_discovery, wsd_discovery, wsd_act_hello, 0, http) < 0)
+		return -1;
+		
+	ret_len += snprintf(out+ret_len, (*out_len)-ret_len, wsd_hello, endpoint, service);
+	*out_len = ret_len;
+	return 0;
+}
+
+int action_bye(char* out, int *out_len, const char* service, int http)
+{
+	static const char wsd_bye[] =
+		"<soap:Body>"
+		  "<wsd:Bye>"
+			"<wsa:EndpointReference>"
+			"<wsa:Address>%s</wsa:Address>"
+			"</wsa:EndpointReference>"
+			"<wsd:Types>%s</wsd:Types>"
+			"<wsd:MetadataVersion>2</wsd:MetadataVersion>"
+		  "</wsd:Bye>"
+		"</soap:Body>"
+	"</soap:Envelope>";
+
+	int		ret_len;
+
+	ret_len = *out_len;
+	if (gen_soap_header(out, &ret_len, wsd_to_discovery, wsd_discovery, wsd_act_bye, 0, http) < 0)
+		return -1;
+		
+	ret_len += snprintf(out+ret_len, (*out_len)-ret_len, wsd_bye, endpoint, service);
+	*out_len = ret_len;
+	return 0;
+}
+
+int action_resolve(char *recv_ip, char *src_msgid, char *body, char* out, int *out_len, int http)
+{
+	static const char wsd_resolve_match[] =
+		"<soap:Body>"
+			"<wsd:ResolveMatches>"
+				"<wsd:ResolveMatch>"
+					"<wsa:EndpointReference>"
+						"<wsa:Address>%s</wsa:Address>"
+					"</wsa:EndpointReference>"
+					"<wsd:Types>%s</wsd:Types>"
+					"<wsd:XAddrs>http://%s:%d/wsd/</wsd:XAddrs>"
+					"<wsd:MetadataVersion>2</wsd:MetadataVersion>"
+				"</wsd:ResolveMatch>"
+			"</wsd:ResolveMatches>"
+		"</soap:Body>"
+	"</soap:Envelope>";
+
 	char	*endp;
-	unsigned int endp_len, len;
-	char app_seq[37], msg_id[37];
-        uuid_t uu;
-	char buffer[8192];
+	int		endp_len, ret_len;
 	
 	endp = get_tag_value(body, wsd_addr, sizeof(wsd_addr)-1, &endp_len);
 	if (!endp) {
 		wsdd_log(LOG_INFO, "Endpoint not found");
-		return;
+		return -1;
 	}			
 	endp[endp_len] = 0;
 	
-	if (strcasecmp(endp, endpoint)) {
-		wsdd_log(LOG_INFO, "Not my endpoint");
-		return;
-	}
+	if (strcasecmp(endp, endpoint))
+		return -1;
 
-	uuid_generate_time(uu);
-	uuid_unparse(uu, app_seq);
-	uuid_generate_time(uu);
-	uuid_unparse(uu, msg_id);
-	len = snprintf(buffer, sizeof(buffer), wsd_match, wsd_header, msg_id, src_msgid, instance_id, app_seq, 1, endpoint);
-	
-	if (sendto(wsd_sock, buffer, len, 0, sa, sa_len) == -1)
-		wsdd_log(LOG_ERR, "sendto() failed");
+	ret_len = *out_len;
+	if (gen_soap_header(out, &ret_len, wsd_to_anon, wsd_discovery, wsd_act_resolve_matches, src_msgid, http) < 0)
+		return -1;
+		
+	ret_len += snprintf(out+ret_len, (*out_len)-ret_len, wsd_resolve_match, endpoint, wsd_device, recv_ip, WSD_HTTP_PORT);
+	*out_len = ret_len;
+	return 0;
 }
 
-void *udp_server_thread(void *data)
+int action_probe(char *recv_ip, char *src_msgid, char *body, char* out, int *out_len, int http)
 {
-	char	buffer[8192];
-	struct	sockaddr_in si;
-	int	read, si_len = sizeof(si);
+	static const char wsd_probe_match[] =
+		"<soap:Body>"
+			"<wsd:ProbeMatches>"
+				"<wsd:ProbeMatch>"
+					"<wsa:EndpointReference>"
+						"<wsa:Address>%s</wsa:Address>"
+					"</wsa:EndpointReference>"
+					"<wsd:Types>%s</wsd:Types>"
+					"<wsd:XAddrs>http://%s:%d/wsd/</wsd:XAddrs>"
+					"<wsd:MetadataVersion>2</wsd:MetadataVersion>"
+				"</wsd:ProbeMatch>"
+			"</wsd:ProbeMatches>"
+		"</soap:Body>"
+	"</soap:Envelope>";
+
+	char	*types;
+	int		types_len, ret_len;
+	
+	types = get_tag_value(body, wsd_types, sizeof(wsd_types)-1, &types_len);
+	if (!types)
+		return -1;
+
+	types[types_len] = 0;
+	
+	if (strncmp(types, wsd_device, types_len))
+		return -1;
+
+	ret_len = *out_len;
+	if (gen_soap_header(out, &ret_len, wsd_to_anon, wsd_discovery, wsd_act_probe_matches, src_msgid, http) < 0)
+		return -1;
+		
+	ret_len += snprintf(out+ret_len, (*out_len)-ret_len, wsd_probe_match, endpoint, wsd_device, recv_ip, WSD_HTTP_PORT);
+	*out_len = ret_len;
+	return 0;
+}
+
+int action_get(char *src_msgid, char *out, int *out_len, int http)
+{
+	static const char wsd_getresponse[] =
+	   "<soap:Body>"
+		  "<wsx:Metadata>"
+			 "<wsx:MetadataSection Dialect=\"http://schemas.xmlsoap.org/ws/2006/02/devprof/ThisDevice\">"
+				"<wsdp:ThisDevice>"
+				   "<wsdp:FriendlyName>%s</wsdp:FriendlyName>"
+				   "<wsdp:FirmwareVersion>%s</wsdp:FirmwareVersion>"
+				   "<wsdp:SerialNumber>%s</wsdp:SerialNumber>"
+				"</wsdp:ThisDevice>"
+			 "</wsx:MetadataSection>"
+			 "<wsx:MetadataSection Dialect=\"http://schemas.xmlsoap.org/ws/2006/02/devprof/ThisModel\">"
+				"<wsdp:ThisModel>"
+				   "<wsdp:Manufacturer>%s</wsdp:Manufacturer>"
+				   "<wsdp:ManufacturerUrl>%s</wsdp:ManufacturerUrl>"
+				   "<wsdp:ModelName>%s</wsdp:ModelName>"
+				   "<wsdp:ModelNumber>1</wsdp:ModelNumber>"
+				   "<wsdp:ModelUrl>%s</wsdp:ModelUrl>"
+				   "<wsdp:PresentationUrl>%s</wsdp:PresentationUrl>"
+				   "<un0:DeviceCategory>Computers</un0:DeviceCategory>"
+				"</wsdp:ThisModel>"
+			 "</wsx:MetadataSection>"
+			 "<wsx:MetadataSection Dialect=\"http://schemas.xmlsoap.org/ws/2006/02/devprof/Relationship\">"
+				"<wsdp:Relationship Type=\"http://schemas.xmlsoap.org/ws/2006/02/devprof/host\">"
+				   "<wsdp:Host>"
+					  "<wsa:EndpointReference>"
+						 "<wsa:Address>%s</wsa:Address>"
+					  "</wsa:EndpointReference>"
+					  "<wsdp:Types>pub:Computer</wsdp:Types>"
+					  "<wsdp:ServiceId>%s</wsdp:ServiceId>"
+					  "<pub:Computer>%s/Workgroup:%s</pub:Computer>"
+				   "</wsdp:Host>"
+				"</wsdp:Relationship>"
+			 "</wsx:MetadataSection>"
+		  "</wsx:Metadata>"
+		"</soap:Body>"
+	  "</soap:Envelope>";
+
+	int		ret_len;
+
+	ret_len = *out_len;
+	if (gen_soap_header(out, &ret_len, wsd_to_anon, wsd_transfer, wsd_act_get_response, src_msgid, http) < 0)
+		return -1;
+		
+	ret_len += snprintf(out+ret_len, (*out_len)-ret_len, wsd_getresponse,
+					cd_friendly_name, cd_firmware, cd_serial, cd_manufacturer, cd_url,
+					cd_model, cd_url, cd_url, endpoint, endpoint, cd_name, cd_workgroup);
+	*out_len = ret_len;
+	return 0;
+}
+
+int handle_request(char *recv_ip, char *in, int in_len, char *out, int *out_len, int http)
+{
+	char	*action, *msgid, *body;
+	unsigned int action_len, msgid_len;
+
+	action = get_tag_value(in, wsd_discovery, sizeof(wsd_discovery)-1, &action_len);
+	if (!action)
+		action = get_tag_value(in, wsd_transfer, sizeof(wsd_transfer)-1, &action_len);
+
+	if (!action) {
+		if (http)
+			return action_get(0, out, out_len, http);
+			
+		return -1;
+	}
+
+	msgid = get_tag_value(in, wsd_msgid, sizeof(wsd_msgid)-1, &msgid_len);
+	if (!msgid)
+		return -1;
+
+	body = strstr(in, wsd_body);
+	if (!msgid)
+		return -1;
+
+	action[action_len] = 0;
+	msgid[msgid_len] = 0;
+	
+	wsdd_log(LOG_INFO, "Action %s", action);
+	if (strcmp(action, wsd_act_probe) == 0)
+		return action_probe(recv_ip, msgid, body, out, out_len, http);
+	if (strcmp(action, wsd_act_resolve) == 0)
+		return action_resolve(recv_ip, msgid, body, out, out_len, http);
+	if (strcmp(action, wsd_act_get) == 0)
+		return action_get(msgid, out, out_len, http);
+	return -1;
+}
+
+void wsdd_http_request(int client)
+{
+	static const char http_response[] =
+	"HTTP/1.1 200\r\n" 
+	"Content-Type: %s\r\n"
+	"Server: wsdd\r\n"
+	"Date: %s\r\n"
+	"Connection: close\r\n"
+	"Content-Length: %d\r\n\r\n";
+
+	static const char http_content_soap[] = "application/soap+xml";
+	static const char http_content_xml[] = "text/xml";
+
+	char		header[1024];
+	char		tstr[32];
+	char		in[8192];
+	char		out[8192];
+	const char	*content;
+	int		in_len, out_len, header_len, body_off, start;
+	time_t		t;
+
+	in_len = recv(client, in, sizeof(in), 0);
+	if (in_len <= 0)
+		return;
+
+	in[in_len] = 0;
+	out_len = sizeof(out) - body_off;
+	if (handle_request("", in, in_len, out + body_off, &out_len, 1) == 0) {
+		time(&t);
+		strftime(tstr, sizeof(tstr), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&t));
+
+		content = memcmp(in, "POST", 4) == 0 ? http_content_soap : http_content_xml;
+		header_len = snprintf(header, sizeof(header), http_response, content, tstr, out_len);
+
+		send(client, header, header_len, 0);
+		send(client, out + start, header_len + out_len, 0); 
+	}
+}
+
+void wsd_udp_request(int conn)
+{
+	char	in[1500], out[1500], msg_control[1024], recv_ip[32];
+	struct	iovec iovec[1];
+	struct	msghdr 	msg;
+	struct	cmsghdr* cmsg;
+	struct	sockaddr_in from;
+	int	in_len, out_len, si_len;
 	char	*action, *msgid, *body;
 	unsigned int action_len, msgid_len;
 	
-	while ((read = recvfrom(wsd_sock, buffer, sizeof(buffer), 0, (struct sockaddr*)&si, &si_len)) > 0) {
-		si_len = sizeof(si);
-		buffer[read] = 0;
+	iovec[0].iov_base = in;
+	iovec[0].iov_len = sizeof(in);
+	msg.msg_name = &from;
+	msg.msg_namelen = sizeof(from);
+	msg.msg_iov = iovec;
+	msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
+	msg.msg_control = msg_control;
+	msg.msg_controllen = sizeof(msg_control);
+	msg.msg_flags = 0;
 
-		action = get_tag_value(buffer, wsd_act_prefix, sizeof(wsd_act_prefix)-1, &action_len);
-		if (!action) {
-			wsdd_log(LOG_INFO, "Received non wsd message");
-			continue;
-		}
+	in_len = recvmsg(conn, &msg, 0);	
+	if (in_len <= 0)
+		return;
+	in[in_len] = 0;
 
-		msgid = get_tag_value(buffer, wsd_msgid, sizeof(wsd_msgid)-1, &msgid_len);
-		if (!msgid) {
-			wsdd_log(LOG_INFO, "Msg ID not found");
-			continue;
-		}
-
-		body = strstr(buffer, wsd_body);
-		if (!msgid) {
-			wsdd_log(LOG_INFO, "Body not found");
-			continue;
-		}
-
-		action[action_len] = 0;
-		msgid[msgid_len] = 0;
+	/* Get local IP */
+	*recv_ip = 0;
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != 0; cmsg = CMSG_NXTHDR(&msg, cmsg))
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
+			strncpy(recv_ip, inet_ntoa(((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst), sizeof(recv_ip));
 		
-		wsdd_log(LOG_INFO, "Received %s from %s:%d", action, inet_ntoa(si.sin_addr), ntohs(si.sin_port));
-		if (strcmp(action, wsd_resolve) == 0) {
-			match_resolve((struct sockaddr*)&si, si_len, msgid, body);
-		}
-	}
+	out_len = sizeof(out);
+	if (handle_request(recv_ip, in, in_len, out, &out_len, 0) == 0)
+		sendto(conn, out, out_len, 0, (struct sockaddr*)&from, msg.msg_namelen);
+}
+
+/* llmnr responder */
+void llmnr_udp_request(int conn)
+{
+	char	in[1500], out[1500], name[192], msg_control[1024], recv_ip[32];
+	struct	iovec iovec[1];
+	struct	msghdr 	msg;
+	struct	cmsghdr* cmsg;
+	struct	sockaddr_in from;
+	struct 	in_addr	to;
+	int	in_len, out_len, name_len;
+	
+	iovec[0].iov_base = in;
+	iovec[0].iov_len = sizeof(in);
+	msg.msg_name = &from;
+	msg.msg_namelen = sizeof(from);
+	msg.msg_iov = iovec;
+	msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
+	msg.msg_control = msg_control;
+	msg.msg_controllen = sizeof(msg_control);
+	msg.msg_flags = 0;
+
+	in_len = recvmsg(conn, &msg, 0);	
+	if (in_len <= 0)
+		return;
+	in[in_len] = 0;
+
+	/* Get local IP */
+	*recv_ip = 0;
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != 0; cmsg = CMSG_NXTHDR(&msg, cmsg))
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
+			to = ((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst;
+
+	if (in_len < 13)
+		return;
+				
+	if (in[3] & 0xf0)
+		return;
+
+	name_len = (unsigned char)(in[12]);
+	if (name_len >= 0xC0)
+		return;
+		
+	memcpy(name, in+13, name_len);
+	name[name_len] = 0;
+	
+	if (strcasecmp(name, cd_name))
+		return;
+
+	if (in[12 + name_len + 3] != DNS_TYPE_A)
+		return;
+	
+	memcpy(out, in, in_len);
+	out_len = in_len;
+	out[2] = 0x80;		/* response */
+	out[7] = 1;		/* one answer */
+	
+	out[out_len++] = 0xc0;	/* referrral */
+	out[out_len++] = 12;	/* first entry */
+	out[out_len++] = 0;	/* type A */
+	out[out_len++] = DNS_TYPE_A;
+	out[out_len++] = 0;	/* class IN */
+	out[out_len++] = 1;
+	out[out_len++] = 0;	/* TTL */
+	out[out_len++] = 0;
+	out[out_len++] = 0;
+	out[out_len++] = 0;
+	out[out_len++] = 0;	/* Address length */
+	out[out_len++] = sizeof(to);
+	memcpy(out+out_len, &to, sizeof(to));
+	out_len += sizeof(to);
+	sendto(conn, out, out_len, 0, (struct sockaddr*)&from, msg.msg_namelen);
+}
+
+static void sigterm_handler(int sig, siginfo_t *siginfo, void *context)
+{
+	terminate = 1;
 }
 
 /* main function */
 int main(int argc, char *argv[])
 {
-	const char *ubus_path = NULL;
-	struct sockaddr_in si;
-	struct ip_mreq imr;
-	int opt, retval = 0;
-        uuid_t uuid;
-	char uuid_str[37];
-	pthread_t udp_server = 0;
-
-	instance_id = time(NULL);
-/*
-	IDLE_TIME *it;
-	int min_idle_time;
-	int sleep_time;
-
-	if ((it = malloc(sizeof(*it))) == NULL) {
-		fprintf(stderr, "out of memory\n");
-		exit(1);
-	}
-	it->next = NULL;
-	it->name = NULL;
-	it->idle_time = DEFAULT_IDLE_TIME;
-	it_root = it; 
-*/
+	struct sockaddr_in	si, wsd_mcast;
+	int			opt, retval = 0;
+	uuid_t			uuid;
+	char 			uuid_str[37];
+	struct sigaction	act;
+	static const int 	enable = 1;
+	char			out[8192];
+	int			out_len;
+	int			conn, clients, i, activity;
+	struct pollfd		fds[MAX_CLIENTS+3];
+	struct ip_mreq		llmnr_imr, wsdd_imr;
+	
+	gethostname(cd_name, sizeof(cd_name));
+	
 	/* process command line options */
-	while ((opt = getopt(argc, argv, "s:dh")) != -1) {
+	while ((opt = getopt(argc, argv, "dhn:w:")) != -1) {
 		switch (opt) {
 
 		case 'd':
@@ -424,91 +633,214 @@ int main(int argc, char *argv[])
 			asdaemon = 0;
 			break;
 
-		case 'h':
-			printf("usage: wsdd [-d] [-h]\n");
-			return(0);
-
-		case 's':
-			ubus_path = optarg;
+		case 'n':
+			strncpy(cd_name, optarg, sizeof(cd_name));
 			break;
+
+		case 'w':
+			strncpy(cd_workgroup, optarg, sizeof(cd_workgroup));
+			break;
+
+		case 'h':
+			printf("usage: wsdd [-d] [-h] [-n hostname] [-w workgroup]\n");
+			return(0);
 		}
 	}
 
+	/* Set signal handler for graceful shutdown */
+	memset(&act, 0, sizeof(act));
+ 	act.sa_sigaction = &sigterm_handler;
+	act.sa_flags = SA_SIGINFO;
+	sigaction(SIGTERM, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+	
 	/* daemonize unless we're running in debug mode */
 	if (asdaemon)
 		daemonize();
-
 	
+	/* Generate UUIDs */
+	instance_id = time(NULL);
 	uuid_generate_time(uuid);
 	uuid_unparse(uuid, uuid_str);
 	sprintf(endpoint, "urn:uuid:%s", uuid_str);
-	wsdd_log(LOG_DEBUG, "Endpoint %s", endpoint);
-	
-	memset((char *) &mcast_addr, 0, sizeof(mcast_addr));
-	mcast_addr.sin_family = AF_INET;
-	mcast_addr.sin_port = htons(WSD_PORT);
-	if (inet_aton(WSD_MCAST_ADDR, &mcast_addr.sin_addr)==0) {
+	uuid_generate_time(uuid);
+	uuid_unparse(uuid, uuid_str);
+	sprintf(sequence, "urn:uuid:%s", uuid_str);
+
+	memset((char *) &wsd_mcast, 0, sizeof(wsd_mcast));
+	wsd_mcast.sin_family = AF_INET;
+	wsd_mcast.sin_port = htons(WSD_PORT);
+	if (inet_aton(WSD_MCAST_ADDR, &wsd_mcast.sin_addr)==0) {
 		wsdd_log(LOG_ERR, "inet_aton() failed for wsd multicast address");
 		return 1;
 	}
 
-	wsd_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (wsd_sock == -1) {
+	/* Prepare LLMNR socket */
+	fds[LLMNR_UDP_SOCK].fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (fds[LLMNR_UDP_SOCK].fd == -1) {
 		wsdd_log(LOG_ERR, "Failed to create socket");
 		return 1;
 	}
+	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));			
 
-	imr.imr_multiaddr.s_addr = inet_addr(WSD_MCAST_ADDR);
-	imr.imr_interface.s_addr = INADDR_ANY;
-	if (setsockopt(wsd_sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&imr, sizeof(struct ip_mreq)) < 0)
+	llmnr_imr.imr_multiaddr.s_addr = inet_addr(LLMNR_MCAST_ADDR);
+	llmnr_imr.imr_interface.s_addr = INADDR_ANY;
+	if (setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&llmnr_imr, sizeof(struct ip_mreq)) < 0)
 	{
-		wsdd_log(LOG_ERR, "Failed to add multicast membership");
+		wsdd_log(LOG_ERR, "Failed to add multicast membershipfor LLMNR");
 		retval = 1;
-		goto close_socket;
+		goto llmnr_udp_close;
 	}
+	
+	memset((char *) &si, 0, sizeof(si));
+	si.sin_family = AF_INET;
+	si.sin_port = htons(LLMNR_PORT);
+	si.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(fds[LLMNR_UDP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) == -1) {
+		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d for LLMNR", ntohs(si.sin_port));
+		retval = 1;
+		goto llmnr_drop_multicast;
+	}	
 
+	fds[WSD_UDP_SOCK].fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (fds[WSD_UDP_SOCK].fd == -1) {
+		wsdd_log(LOG_ERR, "Failed to create socket for wsdd");
+		retval = 1;
+		goto llmnr_drop_multicast;
+	}
+	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));			
+
+	wsdd_imr.imr_multiaddr.s_addr = inet_addr(WSD_MCAST_ADDR);
+	wsdd_imr.imr_interface.s_addr = INADDR_ANY;
+	if (setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&wsdd_imr, sizeof(struct ip_mreq)) < 0)
+	{
+		wsdd_log(LOG_ERR, "Failed to add multicast membership for wsdd");
+		retval = 1;
+		goto wsd_udp_close;
+	}
+	
 	memset((char *) &si, 0, sizeof(si));
 	si.sin_family = AF_INET;
 	si.sin_port = htons(WSD_PORT);
 	si.sin_addr.s_addr = htonl(INADDR_ANY);
-	if (bind(wsd_sock, (const struct sockaddr*)&si, sizeof(si)) == -1) {
-		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d", WSD_PORT);
+	if (bind(fds[WSD_UDP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) == -1) {
+		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d for WSDD", ntohs(si.sin_port));
 		retval = 1;
-		goto drop_multicast;
+		goto wsd_drop_multicast;
 	}	
 
-	if (pthread_create(&udp_server, NULL, udp_server_thread, NULL)) {
-		wsdd_log(LOG_ERR, "Failed to create udp server thread");
+	fds[WSD_HTTP_SOCK].fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (fds[WSD_HTTP_SOCK].fd == -1) {
+		wsdd_log(LOG_ERR, "Failed to create http socket");
 		retval = 1;
-		goto drop_multicast;
+		goto wsd_drop_multicast;
+	}	
+	setsockopt(fds[WSD_HTTP_SOCK].fd, SOL_SOCKET, SO_REUSEADDR, &enable , sizeof(enable));
+
+	memset((char *) &si, 0, sizeof(si));
+	si.sin_family = AF_INET;
+	si.sin_port = htons(WSD_HTTP_PORT);
+	si.sin_addr.s_addr = htonl(INADDR_ANY);
+	if (bind(fds[WSD_HTTP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) < 0) {
+		wsdd_log(LOG_ERR, "Failed to listen to HTTP port %d", WSD_HTTP_PORT);
+		retval = 1;
+		goto wsd_drop_multicast;
 	}	
 
-	if (wsdd_ubus_init(ubus_path) < 0) {
-		wsdd_log(LOG_ERR, "Failed to connect to ubus");
+	if (listen(fds[WSD_HTTP_SOCK].fd, 5) < 0) {
+		wsdd_log(LOG_ERR, "Failed to listen to HTTP port %d", WSD_HTTP_PORT);
 		retval = 1;
-		goto drop_multicast;
+		goto wsd_http_close;
 	}
-		
-	wsdd_log(LOG_INFO, "wsdd running 1");
 
-	uloop_run();
-
-	ubus_free(ctx);
-	uloop_done();
-
-drop_multicast:	
-	setsockopt(wsd_sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&imr, sizeof(struct ip_mreq));
-
-close_socket:
-	shutdown(wsd_sock, SHUT_RDWR);
-	close(wsd_sock);	
-
-	if (udp_server) {
-		wsdd_log(LOG_INFO, "Waiting for udp server thread");
-		pthread_join(udp_server, NULL);
-	}
+	/* Send hello message */
+	out_len = sizeof(out);
+	action_hello(out, &out_len, wsd_device, 0);
+	sendto(fds[WSD_UDP_SOCK].fd, out, out_len, 0, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast));
 	
+	clients = 0;
+	fds[WSD_HTTP_SOCK].events = POLLIN;
+	fds[WSD_UDP_SOCK].events = POLLIN;
+	fds[LLMNR_UDP_SOCK].events = POLLIN;
+	
+	while(!terminate) {
+		activity = poll(fds , 3 + clients, -1);
+		if (activity == -1) {
+			if (errno != EINTR)
+				wsdd_log(LOG_ERR, "Select failed");
+			continue;
+		}
+		
+		if (fds[WSD_HTTP_SOCK].revents & POLLIN) {
+			conn = accept(fds[WSD_HTTP_SOCK].fd, NULL, NULL);
+			if (conn < 0)
+				continue;
+			if (clients < MAX_CLIENTS) {
+				fds[3+clients].fd = conn;
+				fds[3+clients].events = POLLIN;
+				fds[3+clients].revents = 0;
+				clients++;
+			} else
+				close(conn);
+			--activity;
+			if (!activity)
+				continue;
+		}
+
+		if (fds[WSD_UDP_SOCK].revents & POLLIN) {
+			wsd_udp_request(fds[WSD_UDP_SOCK].fd);
+			--activity;
+			if (!activity)
+				continue;
+		}
+
+		if (fds[LLMNR_UDP_SOCK].revents & POLLIN) {
+			llmnr_udp_request(fds[LLMNR_UDP_SOCK].fd);
+			--activity;
+			if (!activity)
+				continue;
+		}
+
+		i = 0;
+		while (i<clients && activity) {
+			if (fds[3+i].revents & POLLIN) {
+				conn = fds[3+i].fd;
+				wsdd_http_request(conn);
+				shutdown(conn, SHUT_RDWR);
+				close(conn);
+				--clients;
+				--activity;
+				fds[3+i] = fds[3+clients];
+			} else
+				i++;
+		}
+	}
+
+	/* Send bye message */
+	out_len = sizeof(out);
+	action_bye(out, &out_len, wsd_device, 0);
+	sendto(fds[WSD_UDP_SOCK].fd, out, out_len, 0, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast));
+
+wsd_http_close:	
+	shutdown(fds[WSD_HTTP_SOCK].fd, SHUT_RDWR);
+	close(fds[WSD_HTTP_SOCK].fd);
+
+wsd_drop_multicast:	
+	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void*)&wsdd_imr, sizeof(wsdd_imr));
+
+wsd_udp_close:
+	shutdown(fds[WSD_UDP_SOCK].fd, SHUT_RDWR);
+	close(fds[WSD_UDP_SOCK].fd);	
+	
+llmnr_drop_multicast:	
+	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&llmnr_imr, sizeof(llmnr_imr));
+
+llmnr_udp_close:
+	shutdown(fds[LLMNR_UDP_SOCK].fd, SHUT_RDWR);
+	close(fds[LLMNR_UDP_SOCK].fd);	
+
 	if (asdaemon)
 		closelog();
+
 	return retval;
 }
