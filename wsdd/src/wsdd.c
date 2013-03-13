@@ -48,7 +48,6 @@
 #include <time.h>
 #include <pthread.h>
 #include <uuid/uuid.h>
-#include <libubus.h>
 #include <signal.h>
  
 #define LLMNR_PORT 5355
@@ -92,6 +91,7 @@ char	endpoint[48];
 char 	sequence[48];
 int	instance_id;
 int	msg_no = 1;
+char	in[8192], out[8192];
 
 /* Variable for computer device */
 char	cd_name[128];
@@ -166,7 +166,7 @@ void wsdd_log(int priority, const char* format, ...) {
 }
 
 /* Find xml tag value */
-char* get_tag_value(char *xml, const char *tag, unsigned int taglen, unsigned int *len)
+char* get_tag_value(char *xml, const char *tag, int taglen, int *len)
 {
 	char *val, *end;
 
@@ -305,7 +305,7 @@ int action_resolve(char *recv_ip, char *src_msgid, char *body, char* out, int *o
 	"</soap:Envelope>";
 
 	char	*endp;
-	int		endp_len, ret_len;
+	int	endp_len, ret_len;
 	
 	endp = get_tag_value(body, wsd_addr, sizeof(wsd_addr)-1, &endp_len);
 	if (!endp) {
@@ -419,7 +419,7 @@ int action_get(char *src_msgid, char *out, int *out_len, int http)
 int handle_request(char *recv_ip, char *in, int in_len, char *out, int *out_len, int http)
 {
 	char	*action, *msgid, *body;
-	unsigned int action_len, msgid_len;
+	int	action_len, msgid_len;
 
 	action = get_tag_value(in, wsd_discovery, sizeof(wsd_discovery)-1, &action_len);
 	if (!action)
@@ -468,10 +468,8 @@ void wsdd_http_request(int client)
 
 	char		header[1024];
 	char		tstr[32];
-	char		in[8192];
-	char		out[8192];
 	const char	*content;
-	int		in_len, out_len, header_len, body_off, start;
+	int		in_len, out_len, header_len, start;
 	time_t		t;
 
 	in_len = recv(client, in, sizeof(in), 0);
@@ -479,8 +477,8 @@ void wsdd_http_request(int client)
 		return;
 
 	in[in_len] = 0;
-	out_len = sizeof(out) - body_off;
-	if (handle_request("", in, in_len, out + body_off, &out_len, 1) == 0) {
+	out_len = sizeof(out);
+	if (handle_request("", in, in_len, out, &out_len, 1) == 0) {
 		time(&t);
 		strftime(tstr, sizeof(tstr), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&t));
 
@@ -492,94 +490,85 @@ void wsdd_http_request(int client)
 	}
 }
 
-void wsd_udp_request(int conn)
+int udp_receive(int conn, struct sockaddr *from, int *from_len, struct in_addr *to)
 {
-	char	in[1500], out[1500], msg_control[1024], recv_ip[32];
+	char	msg_control[1024], recv_ip[32];
 	struct	iovec iovec[1];
 	struct	msghdr 	msg;
 	struct	cmsghdr* cmsg;
-	struct	sockaddr_in from;
-	int	in_len, out_len, si_len;
-	char	*action, *msgid, *body;
-	unsigned int action_len, msgid_len;
+	int	in_len;
 	
 	iovec[0].iov_base = in;
 	iovec[0].iov_len = sizeof(in);
-	msg.msg_name = &from;
-	msg.msg_namelen = sizeof(from);
+	msg.msg_name = from;
+	msg.msg_namelen = *from_len;
 	msg.msg_iov = iovec;
 	msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
 	msg.msg_control = msg_control;
 	msg.msg_controllen = sizeof(msg_control);
 	msg.msg_flags = 0;
 
-	in_len = recvmsg(conn, &msg, 0);	
+	in_len = recvmsg(conn, &msg, 0);
 	if (in_len <= 0)
-		return;
+		return in_len;
 	in[in_len] = 0;
 
 	/* Get local IP */
 	*recv_ip = 0;
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != 0; cmsg = CMSG_NXTHDR(&msg, cmsg))
 		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
-			strncpy(recv_ip, inet_ntoa(((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst), sizeof(recv_ip));
+			*to = ((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst;
+
+	*from_len = msg.msg_namelen;
+	return in_len;
+}
+
+
+void wsd_udp_request(int conn)
+{
+	struct	sockaddr from;
+	struct	in_addr to;
+	int	in_len, out_len, from_len;
+	char	recv_ip[32];
+
+	from_len = sizeof(from);
+	in_len = udp_receive(conn, &from, &from_len, &to);
+	if (in_len <= 0)
+		return;
+
+	strncpy(recv_ip, inet_ntoa(to), sizeof(recv_ip));
 		
 	out_len = sizeof(out);
 	if (handle_request(recv_ip, in, in_len, out, &out_len, 0) == 0)
-		sendto(conn, out, out_len, 0, (struct sockaddr*)&from, msg.msg_namelen);
+		sendto(conn, out, out_len, 0, &from, from_len);
 }
 
 /* llmnr responder */
 void llmnr_udp_request(int conn)
 {
-	char	in[1500], out[1500], name[192], msg_control[1024], recv_ip[32];
-	struct	iovec iovec[1];
-	struct	msghdr 	msg;
-	struct	cmsghdr* cmsg;
-	struct	sockaddr_in from;
+	struct	sockaddr from;
 	struct 	in_addr	to;
-	int	in_len, out_len, name_len;
-	
-	iovec[0].iov_base = in;
-	iovec[0].iov_len = sizeof(in);
-	msg.msg_name = &from;
-	msg.msg_namelen = sizeof(from);
-	msg.msg_iov = iovec;
-	msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
-	msg.msg_control = msg_control;
-	msg.msg_controllen = sizeof(msg_control);
-	msg.msg_flags = 0;
+	int	in_len, out_len, from_len, name_len;
 
-	in_len = recvmsg(conn, &msg, 0);	
-	if (in_len <= 0)
-		return;
-	in[in_len] = 0;
-
-	/* Get local IP */
-	*recv_ip = 0;
-	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != 0; cmsg = CMSG_NXTHDR(&msg, cmsg))
-		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
-			to = ((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst;
+	from_len = sizeof(from);
+	in_len = udp_receive(conn, &from, &from_len, &to);	
 
 	if (in_len < 13)
 		return;
-				
-	if (in[3] & 0xf0)
+
+	if (in[3] & 0xf0)	/* check for standard query */
 		return;
 
 	name_len = (unsigned char)(in[12]);
 	if (name_len >= 0xC0)
 		return;
-		
-	memcpy(name, in+13, name_len);
-	name[name_len] = 0;
-	
-	if (strcasecmp(name, cd_name))
-		return;
 
 	if (in[12 + name_len + 3] != DNS_TYPE_A)
 		return;
-	
+
+	if (strlen(cd_name) != name_len || strncasecmp(cd_name, in+13, name_len))
+		return;
+
 	memcpy(out, in, in_len);
 	out_len = in_len;
 	out[2] = 0x80;		/* response */
@@ -599,7 +588,7 @@ void llmnr_udp_request(int conn)
 	out[out_len++] = sizeof(to);
 	memcpy(out+out_len, &to, sizeof(to));
 	out_len += sizeof(to);
-	sendto(conn, out, out_len, 0, (struct sockaddr*)&from, msg.msg_namelen);
+	sendto(conn, out, out_len, 0, &from, from_len);
 }
 
 static void sigterm_handler(int sig, siginfo_t *siginfo, void *context)
@@ -616,7 +605,6 @@ int main(int argc, char *argv[])
 	char 			uuid_str[37];
 	struct sigaction	act;
 	static const int 	enable = 1;
-	char			out[8192];
 	int			out_len;
 	int			conn, clients, i, activity;
 	struct pollfd		fds[MAX_CLIENTS+3];

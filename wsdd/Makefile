@@ -30,7 +30,7 @@ endef
 
 define Build/Compile
 	$(TARGET_CC) \
-		-I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) \
+		-I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) -Wall \
 		-L$(STAGING_DIR)/usr/lib \
 		-l:libuuid.so.1 \
 		-o $(PKG_BUILD_DIR)/$(PKG_NAME) $(PKG_BUILD_DIR)/$(PKG_NAME).c
