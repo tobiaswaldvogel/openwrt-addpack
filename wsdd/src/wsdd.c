@@ -92,6 +92,8 @@ char 	sequence[48];
 int	instance_id;
 int	msg_no = 1;
 char	in[8192], out[8192];
+char	iface[32] = "";
+struct in_addr	iface_addr;
 
 /* Variable for computer device */
 char	cd_name[128];
@@ -469,7 +471,7 @@ void wsdd_http_request(int client)
 	char		header[1024];
 	char		tstr[32];
 	const char	*content;
-	int		in_len, out_len, header_len, start;
+	int		in_len, out_len, header_len;
 	time_t		t;
 
 	in_len = recv(client, in, sizeof(in), 0);
@@ -485,8 +487,8 @@ void wsdd_http_request(int client)
 		content = memcmp(in, "POST", 4) == 0 ? http_content_soap : http_content_xml;
 		header_len = snprintf(header, sizeof(header), http_response, content, tstr, out_len);
 
-		send(client, header, header_len, 0);
-		send(client, out + start, header_len + out_len, 0); 
+		send(client, header, header_len, MSG_MORE);
+		send(client, out, out_len, 0); 
 	}
 }
 
@@ -523,6 +525,35 @@ int udp_receive(int conn, struct sockaddr *from, int *from_len, struct in_addr *
 	return in_len;
 }
 
+int udp_send(int conn, const struct in_addr from, const struct sockaddr *to, int to_len, int out_len)
+{
+	char	msg_control[1024];
+	struct	iovec iovec[1];
+	struct	msghdr 	msg;
+	struct	cmsghdr* cmsg;
+	struct 	in_pktinfo *pktinfo;
+	
+	iovec[0].iov_base = out;
+	iovec[0].iov_len = out_len;
+	msg.msg_name = (struct sockaddr*)to;
+	msg.msg_namelen = to_len;
+	msg.msg_iov = iovec;
+	msg.msg_iovlen = sizeof(iovec) / sizeof(*iovec);
+	msg.msg_control = msg_control;
+	msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
+	msg.msg_flags = 0;
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_level = IPPROTO_IP;
+	cmsg->cmsg_type = IP_PKTINFO;
+	cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+	pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+	pktinfo->ipi_ifindex = 0;
+	pktinfo->ipi_spec_dst = from;
+
+	return sendmsg(conn, &msg, 0);
+}
+
 
 void wsd_udp_request(int conn)
 {
@@ -540,7 +571,7 @@ void wsd_udp_request(int conn)
 		
 	out_len = sizeof(out);
 	if (handle_request(recv_ip, in, in_len, out, &out_len, 0) == 0)
-		sendto(conn, out, out_len, 0, &from, from_len);
+		udp_send(conn, iface_addr, &from, from_len, out_len);
 }
 
 /* llmnr responder */
@@ -588,7 +619,7 @@ void llmnr_udp_request(int conn)
 	out[out_len++] = sizeof(to);
 	memcpy(out+out_len, &to, sizeof(to));
 	out_len += sizeof(to);
-	sendto(conn, out, out_len, 0, &from, from_len);
+	udp_send(conn, iface_addr, &from, from_len, out_len);
 }
 
 static void sigterm_handler(int sig, siginfo_t *siginfo, void *context)
@@ -613,12 +644,16 @@ int main(int argc, char *argv[])
 	gethostname(cd_name, sizeof(cd_name));
 	
 	/* process command line options */
-	while ((opt = getopt(argc, argv, "dhn:w:")) != -1) {
+	while ((opt = getopt(argc, argv, "dhn:w:i:")) != -1) {
 		switch (opt) {
 
 		case 'd':
 			loglevel = LOG_DEBUG;
 			asdaemon = 0;
+			break;
+
+		case 'i':
+			strncpy(iface, optarg, sizeof(iface));
 			break;
 
 		case 'n':
@@ -630,10 +665,17 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'h':
-			printf("usage: wsdd [-d] [-h] [-n hostname] [-w workgroup]\n");
+			printf("usage: wsdd [-d] [-h] [-n hostname] [-w workgroup] [-i ip]\n");
 			return(0);
 		}
 	}
+
+	iface_addr.s_addr = htonl(INADDR_ANY);
+	if (*iface)
+		if (inet_aton(iface, &iface_addr) == 0) {
+			wsdd_log(LOG_ERR, "Invalid interface address %s", iface);
+			return 1;
+		}
 
 	/* Set signal handler for graceful shutdown */
 	memset(&act, 0, sizeof(act));
@@ -658,7 +700,7 @@ int main(int argc, char *argv[])
 	memset((char *) &wsd_mcast, 0, sizeof(wsd_mcast));
 	wsd_mcast.sin_family = AF_INET;
 	wsd_mcast.sin_port = htons(WSD_PORT);
-	if (inet_aton(WSD_MCAST_ADDR, &wsd_mcast.sin_addr)==0) {
+	if (inet_aton(WSD_MCAST_ADDR, &wsd_mcast.sin_addr) == 0) {
 		wsdd_log(LOG_ERR, "inet_aton() failed for wsd multicast address");
 		return 1;
 	}
@@ -669,17 +711,17 @@ int main(int argc, char *argv[])
 		wsdd_log(LOG_ERR, "Failed to create socket");
 		return 1;
 	}
-	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));			
+	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));
 
 	llmnr_imr.imr_multiaddr.s_addr = inet_addr(LLMNR_MCAST_ADDR);
-	llmnr_imr.imr_interface.s_addr = INADDR_ANY;
+	llmnr_imr.imr_interface = iface_addr;
 	if (setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&llmnr_imr, sizeof(struct ip_mreq)) < 0)
 	{
 		wsdd_log(LOG_ERR, "Failed to add multicast membershipfor LLMNR");
 		retval = 1;
 		goto llmnr_udp_close;
 	}
-	
+
 	memset((char *) &si, 0, sizeof(si));
 	si.sin_family = AF_INET;
 	si.sin_port = htons(LLMNR_PORT);
@@ -696,10 +738,10 @@ int main(int argc, char *argv[])
 		retval = 1;
 		goto llmnr_drop_multicast;
 	}
-	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));			
+	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));
 
 	wsdd_imr.imr_multiaddr.s_addr = inet_addr(WSD_MCAST_ADDR);
-	wsdd_imr.imr_interface.s_addr = INADDR_ANY;
+	wsdd_imr.imr_interface = iface_addr;
 	if (setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&wsdd_imr, sizeof(struct ip_mreq)) < 0)
 	{
 		wsdd_log(LOG_ERR, "Failed to add multicast membership for wsdd");
@@ -715,7 +757,7 @@ int main(int argc, char *argv[])
 		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d for WSDD", ntohs(si.sin_port));
 		retval = 1;
 		goto wsd_drop_multicast;
-	}	
+	}
 
 	fds[WSD_HTTP_SOCK].fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (fds[WSD_HTTP_SOCK].fd == -1) {
@@ -728,7 +770,7 @@ int main(int argc, char *argv[])
 	memset((char *) &si, 0, sizeof(si));
 	si.sin_family = AF_INET;
 	si.sin_port = htons(WSD_HTTP_PORT);
-	si.sin_addr.s_addr = htonl(INADDR_ANY);
+	si.sin_addr = iface_addr;
 	if (bind(fds[WSD_HTTP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) < 0) {
 		wsdd_log(LOG_ERR, "Failed to listen to HTTP port %d", WSD_HTTP_PORT);
 		retval = 1;
@@ -744,8 +786,12 @@ int main(int argc, char *argv[])
 	/* Send hello message */
 	out_len = sizeof(out);
 	action_hello(out, &out_len, wsd_device, 0);
-	sendto(fds[WSD_UDP_SOCK].fd, out, out_len, 0, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast));
-	
+	if (udp_send(fds[WSD_UDP_SOCK].fd, iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
+		wsdd_log(LOG_ERR, "Failed to send hello with %d", errno);
+		retval = 1;
+		goto wsd_http_close;
+	}
+		
 	clients = 0;
 	fds[WSD_HTTP_SOCK].events = POLLIN;
 	fds[WSD_UDP_SOCK].events = POLLIN;
@@ -807,7 +853,10 @@ int main(int argc, char *argv[])
 	/* Send bye message */
 	out_len = sizeof(out);
 	action_bye(out, &out_len, wsd_device, 0);
-	sendto(fds[WSD_UDP_SOCK].fd, out, out_len, 0, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast));
+	if (udp_send(fds[WSD_UDP_SOCK].fd, iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
+		wsdd_log(LOG_ERR, "Failed to send bye with %d", errno);
+		retval = 1;
+	}
 
 wsd_http_close:	
 	shutdown(fds[WSD_HTTP_SOCK].fd, SHUT_RDWR);
