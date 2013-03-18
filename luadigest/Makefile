@@ -30,6 +30,7 @@ define Build/Prepare
 endef
 
 PKG_JOBS:=digests
+TARGET_CFLAGS += -fPIC
 
 define Build/Compile
 	(cd  $(PKG_BUILD_DIR); \
