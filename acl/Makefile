@@ -31,6 +31,8 @@ define Package/libacl/description
  Library for Manipulating Filesystem Extended aclibutes
 endef
 
+CONFIGURE_ARGS += --enable-gettext=no
+
 define Package/acl
   SECTION:=utilities
   CATEGORY:=Utilities

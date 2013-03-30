@@ -29,6 +29,8 @@ define Package/libattr/description
  Library for Manipulating Filesystem Extended Attributes
 endef
 
+CONFIGURE_ARGS += --enable-gettext=no 
+
 define Package/attr
   SECTION:=utilities
   CATEGORY:=Utilities

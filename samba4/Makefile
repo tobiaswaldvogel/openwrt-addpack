@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=samba
-PKG_VERSION:=4.0.3
+PKG_VERSION:=4.0.4
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
@@ -35,7 +35,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap +krb5-libs +libiconv +libacl +libreadline +libtirpc +libaio
+  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap +krb5-libs +libiconv +libacl +libreadline +libaio
 endef
 
 define Package/samba4-client
@@ -43,7 +43,7 @@ define Package/samba4-client
   CATEGORY:=Network
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
-  DEPENDS:=+libreadline +libncurses +libopenldap +krb5-libs +libtirpc +libaio +zlib
+  DEPENDS:=+libreadline +libncurses +libopenldap +krb5-libs +libaio +zlib
 endef
 
 define Package/samba4-server/config
@@ -67,7 +67,6 @@ TARGET_CFLAGS += \
 	-D__location__=\\\"\\\" \
 	-ffunction-sections -fdata-sections \
 	-I$(STAGING_DIR)/usr/include/krb5 \
-	-I$(STAGING_DIR)/usr/include/tirpc \
 	-DACTIVE_DIRECTORY \
 	-DDFS_SUPPORT \
 	-DNETLOGON_SUPPORT \
@@ -75,7 +74,7 @@ TARGET_CFLAGS += \
 	-DLSA_SUPPORT
 
 TARGET_LDFLAGS += \
-	-Wl,--gc-sections -laio -lkrb5 -l:libcom_err.so.3 -ldl -ltirpc -lgssapi_krb5 \
+	-Wl,--gc-sections -laio -lkrb5 -l:libcom_err.so.3 -ldl -lgssapi_krb5 \
 	-Wl,-rpath-link=$(STAGING_DIR)/usr/lib -lkrb5 \
 	-L$(STAGING_DIR)/usr/lib/libiconv/lib \
 
