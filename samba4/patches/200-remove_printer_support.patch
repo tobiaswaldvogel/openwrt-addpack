@@ -81,7 +81,7 @@
  			d_printf(_("Usage:\n"));
 --- a/source3/smbd/reply.c
 +++ b/source3/smbd/reply.c
-@@ -5426,7 +5426,11 @@ void reply_printopen(struct smb_request 
+@@ -5459,7 +5459,11 @@ void reply_printopen(struct smb_request 
  		return;
  	}
  
@@ -94,7 +94,7 @@
  		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
  		END_PROFILE(SMBsplopen);
  		return;
-@@ -5532,7 +5536,10 @@ void reply_printqueue(struct smb_request
+@@ -5565,7 +5569,10 @@ void reply_printqueue(struct smb_request
  	   is really quite gross and only worked when there was only
  	   one printer - I think we should now only accept it if they
  	   get it right (tridge) */
@@ -305,7 +305,7 @@
  		}
 --- a/source3/smbd/process.c
 +++ b/source3/smbd/process.c
-@@ -2622,8 +2622,10 @@ static bool housekeeping_fn(const struct
+@@ -2627,8 +2627,10 @@ static bool housekeeping_fn(const struct
  
  	change_to_root_user();
  

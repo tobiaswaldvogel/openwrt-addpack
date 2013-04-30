@@ -1,6 +1,6 @@
 --- a/source3/param/loadparm.c	2012-07-29 02:30:28.218743520 +0200
 +++ b/source3/param/loadparm.c	2012-07-29 02:42:44.818657559 +0200
-@@ -5506,3 +5506,17 @@
+@@ -5507,3 +5507,17 @@
  	return lp_find_security(lp__server_role(),
  				lp__security());
  }
