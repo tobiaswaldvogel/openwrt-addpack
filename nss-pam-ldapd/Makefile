@@ -18,8 +18,6 @@ PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
 
-#EXTRA_LDFLAGS += -Wl,-rpath-link=$(STAGING_DIR)/usr/lib
-#CONFIGURE_ARGS += --with-ldap-conf-file=/var/etc/ldap.conf
 EXTRA_CFLAGS += -I$(STAGING_DIR)/usr/include/krb5/
 
 define Package/nss-pam-ldapd
@@ -27,7 +25,7 @@ define Package/nss-pam-ldapd
   CATEGORY:=Network
   TITLE:=Daemon for nns-ldap and pam-ldap module
   URL:=//http://arthurdejong.org/nss-pam-ldapd/
-  DEPENDS:=+libopenldap +krb5-libs +libpam
+  DEPENDS:=+libopenldap-sasl +krb5-mit-libs +libpam
 endef
 
 define Package/libnss_ldap

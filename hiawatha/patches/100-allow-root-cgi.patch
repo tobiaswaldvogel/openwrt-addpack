@@ -1,0 +1,20 @@
+--- a/src/userconfig.c	2014-08-07 05:43:49.876535038 -0500
++++ b/src/userconfig.c	2014-06-01 03:03:18.000000000 -0500
+@@ -41,7 +41,7 @@
+ 		*uid = id;
+ 	}
+ 
+-	return (*uid == 0) ? 0 : 1;
++	return 1;
+ }
+ 
+ static gid_t parse_groupid(char *groupid, gid_t *gid) {
+@@ -61,7 +61,7 @@
+ 		*gid = id;
+ 	}
+ 
+-	return (*gid == 0) ? 0 : 1;
++	return 1;
+ }
+ 
+ int parse_groups(char *groupid, gid_t *gid, t_groups *groups) {

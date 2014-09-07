@@ -1,5 +1,5 @@
---- a/source3/rpc_server/rpc_service_setup.c	2013-02-03 01:43:27.026533041 +0100
-+++ b/source3/rpc_server/rpc_service_setup.c	2013-02-03 01:46:36.663279370 +0100
+--- a/source3/rpc_server/rpc_service_setup.c
++++ b/source3/rpc_server/rpc_service_setup.c
 @@ -501,10 +501,12 @@
  		goto done;
  	}
@@ -55,7 +55,7 @@
  	svcctl_ops[i].ops  = &netlogon_svc_ops;
 --- a/source3/printing/spoolssd.c
 +++ b/source3/printing/spoolssd.c
-@@ -636,6 +636,10 @@ void start_spoolssd(struct tevent_contex
+@@ -638,6 +638,10 @@ void start_spoolssd(struct tevent_contex
  	int ret;
  	bool ok;
  
@@ -68,7 +68,7 @@
  	/*
 --- a/source3/utils/net_rpc.c
 +++ b/source3/utils/net_rpc.c
-@@ -7836,6 +7836,10 @@ int net_rpc_printer(struct net_context *
+@@ -7879,6 +7879,10 @@ int net_rpc_printer(struct net_context *
  		{NULL, NULL, 0, NULL, NULL}
  	};
  
@@ -81,7 +81,7 @@
  			d_printf(_("Usage:\n"));
 --- a/source3/smbd/reply.c
 +++ b/source3/smbd/reply.c
-@@ -5459,7 +5459,11 @@ void reply_printopen(struct smb_request 
+@@ -5497,7 +5497,11 @@ void reply_printopen(struct smb_request 
  		return;
  	}
  
@@ -94,7 +94,7 @@
  		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
  		END_PROFILE(SMBsplopen);
  		return;
-@@ -5565,7 +5569,10 @@ void reply_printqueue(struct smb_request
+@@ -5603,7 +5607,10 @@ void reply_printqueue(struct smb_request
  	   is really quite gross and only worked when there was only
  	   one printer - I think we should now only accept it if they
  	   get it right (tridge) */
@@ -130,7 +130,7 @@
  	if (!param_format || !output_format1 || !p) {
  		return False;
  	}
-@@ -3351,6 +3359,10 @@ static bool api_RDosPrintJobDel(struct s
+@@ -3106,6 +3114,10 @@ static bool api_RDosPrintJobDel(struct s
  	struct spoolss_DevmodeContainer devmode_ctr;
  	enum spoolss_JobControl command;
  
@@ -141,7 +141,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -3484,6 +3496,10 @@ static bool api_WPrintQueueCtrl(struct s
+@@ -3239,6 +3251,10 @@ static bool api_WPrintQueueCtrl(struct s
  	struct sec_desc_buf secdesc_ctr;
  	enum spoolss_PrinterControl command;
  
@@ -152,7 +152,7 @@
  	if (!str1 || !str2 || !QueueName) {
  		return False;
  	}
-@@ -3650,6 +3666,10 @@ static bool api_PrintJobInfo(struct smbd
+@@ -3405,6 +3421,10 @@ static bool api_PrintJobInfo(struct smbd
  	union spoolss_JobInfo info;
  	struct spoolss_SetJobInfo1 info1;
  
@@ -163,7 +163,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -4799,6 +4819,10 @@ static bool api_WPrintJobGetInfo(struct 
+@@ -4554,6 +4574,10 @@ static bool api_WPrintJobGetInfo(struct 
  	struct spoolss_DevmodeContainer devmode_ctr;
  	union spoolss_JobInfo info;
  
@@ -174,7 +174,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -4937,6 +4961,10 @@ static bool api_WPrintJobEnumerate(struc
+@@ -4692,6 +4716,10 @@ static bool api_WPrintJobEnumerate(struc
  	uint32_t count = 0;
  	union spoolss_JobInfo *info;
  
@@ -185,7 +185,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -5142,6 +5170,10 @@ static bool api_WPrintDestGetInfo(struct
+@@ -4897,6 +4925,10 @@ static bool api_WPrintDestGetInfo(struct
  	struct spoolss_DevmodeContainer devmode_ctr;
  	union spoolss_PrinterInfo info;
  
@@ -196,7 +196,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -5278,6 +5310,10 @@ static bool api_WPrintDestEnum(struct sm
+@@ -5033,6 +5065,10 @@ static bool api_WPrintDestEnum(struct sm
  	union spoolss_PrinterInfo *info;
  	uint32_t count;
  
@@ -207,7 +207,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -5381,6 +5417,10 @@ static bool api_WPrintDriverEnum(struct 
+@@ -5136,6 +5172,10 @@ static bool api_WPrintDriverEnum(struct 
  	int succnt;
  	struct pack_desc desc;
  
@@ -218,7 +218,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -5445,6 +5485,10 @@ static bool api_WPrintQProcEnum(struct s
+@@ -5200,6 +5240,10 @@ static bool api_WPrintQProcEnum(struct s
  	int succnt;
  	struct pack_desc desc;
  
@@ -229,7 +229,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -5509,6 +5553,10 @@ static bool api_WPrintPortEnum(struct sm
+@@ -5264,6 +5308,10 @@ static bool api_WPrintPortEnum(struct sm
  	int succnt;
  	struct pack_desc desc;
  
@@ -242,7 +242,7 @@
  	}
 --- a/source3/smbd/server_exit.c
 +++ b/source3/smbd/server_exit.c
-@@ -177,7 +177,9 @@ static void exit_server_common(enum serv
+@@ -186,7 +186,9 @@ static void exit_server_common(enum serv
  		rpc_eventlog_shutdown();
  		rpc_ntsvcs_shutdown();
  		rpc_svcctl_shutdown();
@@ -254,7 +254,7 @@
  		rpc_winreg_shutdown();
 --- a/source3/smbd/open.c
 +++ b/source3/smbd/open.c
-@@ -1928,6 +1928,9 @@ static NTSTATUS open_file_ntcreate(conne
+@@ -1986,6 +1986,9 @@ static NTSTATUS open_file_ntcreate(conne
  		 * Most of the passed parameters are ignored.
  		 */
  
@@ -266,7 +266,7 @@
  		}
 --- a/source3/smbd/close.c
 +++ b/source3/smbd/close.c
-@@ -797,6 +797,9 @@ static NTSTATUS close_normal_file(struct
+@@ -831,6 +831,9 @@ static NTSTATUS close_normal_file(struct
  	}
  
  	if (fsp->print_file) {
@@ -291,7 +291,7 @@
  			errno = ret;
 --- a/source3/smbd/smb2_create.c
 +++ b/source3/smbd/smb2_create.c
-@@ -520,7 +520,10 @@ static struct tevent_req *smbd_smb2_crea
+@@ -525,7 +525,10 @@ static struct tevent_req *smbd_smb2_crea
 		}
  
  		status = file_new(smb1req, smb1req->conn, &result);
@@ -305,7 +305,7 @@
  		}
 --- a/source3/smbd/process.c
 +++ b/source3/smbd/process.c
-@@ -2627,8 +2627,10 @@ static bool housekeeping_fn(const struct
+@@ -2691,8 +2691,10 @@ static bool housekeeping_fn(const struct
  
  	change_to_root_user();
  
@@ -318,7 +318,7 @@
  	check_reload(sconn, time_mono(NULL));
 --- a/source3/smbd/server.c
 +++ b/source3/smbd/server.c
-@@ -119,7 +119,9 @@ static void smb_pcap_updated(struct mess
+@@ -120,7 +120,9 @@ static void smb_pcap_updated(struct mess
  {
  	struct tevent_context *ev_ctx =
  		talloc_get_type_abort(private_data, struct tevent_context);
@@ -329,7 +329,7 @@
  	DEBUG(10,("Got message saying pcap was updated. Reloading.\n"));
  	change_to_root_user();
  	delete_and_reload_printers(ev_ctx, msg);
-@@ -1496,6 +1498,7 @@
+@@ -1506,6 +1508,7 @@
  			start_lsasd(ev_ctx, msg_ctx);
  		}
  
@@ -337,7 +337,7 @@
  		if (!lp__disable_spoolss() &&
  		    (rpc_spoolss_daemon() != RPC_DAEMON_DISABLED)) {
  			bool bgq = lp_parm_bool(-1, "smbd", "backgroundqueue", true);
-@@ -1509,6 +1512,7 @@
+@@ -1519,6 +1522,7 @@
  		if (!printing_subsystem_init(ev_ctx, msg_ctx, false, false)) {
  			exit(1);
  		}
@@ -345,7 +345,7 @@
  	}
  
  	if (!is_daemon) {
-@@ -1541,12 +1545,14 @@
+@@ -1551,12 +1555,14 @@
  	if (!open_sockets_smbd(parent, ev_ctx, msg_ctx, ports))
  		exit_server("open_sockets_smbd() failed");
  

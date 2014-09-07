@@ -1,0 +1,29 @@
+--- a/src/plugins/kdb/ldap/libkdb_ldap/kdb_ldap_conn.c	2012-07-14 16:49:02.091835589 +0200
++++ b/src/plugins/kdb/ldap/libkdb_ldap/kdb_ldap_conn.c	2012-07-14 16:54:43.638593921 +0200
+@@ -44,13 +44,13 @@
+     krb5_error_code             st=0;
+     unsigned char               *password=NULL;
+ 
+-    if (ldap_context->bind_dn == NULL) {
++    if (ldap_context->bind_dn == NULL && ldap_context->bind_pwd != NULL) {
+         st = EINVAL;
+         krb5_set_error_message(context, st, _("LDAP bind dn value missing "));
+         goto err_out;
+     }
+ 
+-    if (ldap_context->bind_pwd == NULL && ldap_context->service_password_file == NULL) {
++    if (ldap_context->bind_dn != NULL && ldap_context->bind_pwd == NULL && ldap_context->service_password_file == NULL) {
+         st = EINVAL;
+         krb5_set_error_message(context, st,
+                                _("LDAP bind password value missing "));
+@@ -109,8 +109,8 @@
+     krb5_error_code             st=0;
+     struct berval               bv={0, NULL}, *servercreds=NULL;
+ 
+-    if (ldap_context->service_cert_path != NULL) {
+-        /* Certificate based bind (SASL EXTERNAL mechanism) */
++    if (ldap_context->service_cert_path != NULL || ldap_context->bind_dn == NULL) {
++        /* Certificate based or UID/GID based bind (SASL EXTERNAL mechanism) */
+ 
+         st = ldap_sasl_bind_s(ldap_server_handle->ldap_handle,
+                               NULL,        /* Authenticating dn */

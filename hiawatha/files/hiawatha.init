@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2010 OpenWrt.org
+
+START=90
+STOP=10
+
+NAME=hiawatha
+PROG=/usr/sbin/$NAME
+PID=/var/run/$NAME.pid
+SSD=start-stop-daemon
+
+start() {
+	mkdir -p /var/log/hiawatha
+        $SSD -p $PID -S -x $PROG 
+}
+	
+stop() {
+	$SSD -p $PID -K -s SIGTERM
+}

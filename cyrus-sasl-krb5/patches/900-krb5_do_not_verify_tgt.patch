@@ -1,0 +1,16 @@
+--- a/saslauthd/auth_krb5.c
++++ b/saslauthd/auth_krb5.c
+@@ -436,11 +436,13 @@
+ 	return strdup("NO saslauthd internal error");
+     }
+     
++#ifdef AUTH_KRB5_VERIFY_TGT
+     if (!k5support_verify_tgt(context, ccache)) {
+ 	syslog(LOG_ERR, "auth_krb5: k5support_verify_tgt");
+ 	result = strdup("NO saslauthd internal error");
+ 	goto fini;
+     }
++#endif
+     
+     /* 
+      * fall through -- user is valid beyond this point  

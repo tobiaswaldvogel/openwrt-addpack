@@ -1,0 +1,452 @@
+--- a/Makefile
++++ b/Makefile
+@@ -11,7 +11,7 @@
+ LDFLAGS	=	-fPIE -pie -Wl,-z,relro -Wl,-z,now
+ 
+ OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
+-		tunables.o ftpdataio.o secbuf.o ls.o \
++		tunables.o ftpdataio.o secbuf.o recv_aio.o ls.o \
+ 		postprivparent.o logging.o str.o netstr.o sysstr.o strlist.o \
+     banner.o filestr.o parseconf.o secutil.o \
+     ascii.o oneprocess.o twoprocess.o privops.o standalone.o hash.o \
+--- a/ftpdataio.c
++++ b/ftpdataio.c
+@@ -51,6 +51,7 @@
+                           struct mystr_list* p_dir_list,
+                           enum EVSFRWTarget target);
+ static unsigned int get_chunk_size();
++struct vsf_transfer_ret do_file_recv_aio(p_sess, file_fd);
+
+ int
+ vsf_ftpdataio_dispose_transfer_fd(struct vsf_session* p_sess)
+@@ -459,7 +460,10 @@
+   }
+   else
+   {
+-    return do_file_recv(p_sess, file_fd, is_ascii);
++    if (is_ascii || p_sess->data_use_ssl)
++      return do_file_recv(p_sess, file_fd, is_ascii);
++
++    return do_file_recv_aio(p_sess, file_fd);
+   }
+ }
+ 
+--- /dev/null
++++ b/recv_aio.c
+@@ -0,0 +1,416 @@
++/*
++ * Author: Tobias Waldvogel
++ * based on work from Giuseppe De Robertis for ProFTPD
++ */
++#define _GNU_SOURCE
++#define _FILE_OFFSET_BITS 64
++#define _LARGEFILE_SOURCE 1
++#define _LARGEFILE64_SOURCE 1
++#define _LARGE_FILES 1
++ 
++#include "ftpdataio.h"
++#include "defs.h"
++#include <fcntl.h>
++#include <syslog.h>
++#include <libaio.h>
++#include <malloc.h>
++#include <unistd.h>
++#include <errno.h>
++#include <stdlib.h>
++
++#define BLOCK_SIZE (512 * 1024)
++#define SECTOR_SIZE getpagesize()
++#define ROUND_SECTOR(x) ((x) + SECTOR_SIZE-1) & ~(SECTOR_SIZE-1)
++
++typedef struct iocb_ctrl_struct {
++	unsigned char	*mem_start;
++	struct iocb 	iocb;
++} iocb_ctrl_t;
++
++typedef struct daio_struct {
++	unsigned char 	*buffer;
++	size_t			size;
++	size_t			blockSize;
++	int 			blockNum;
++	unsigned char	*inPtr;				/* pointer to the first free data location*/
++	unsigned char	*outPtr;			/* pointer to the first used location */
++	unsigned char	*pendingPtr;		/* first data to be read */
++	size_t			pendingDataSize;
++
++	int				fd;
++	off_t			fileOffset;
++	off_t			initialFileSize;
++
++	io_context_t 	ctx;
++	iocb_ctrl_t		*iocb_ctrl;
++	int 			requests;
++} daio_t;
++
++int daio_flush(daio_t *daioData);
++static int daio_wait_free_space(daio_t *daioData, size_t count);
++
++daio_t *daio_init(size_t blockSize, int blockNum)
++{
++	daio_t *daioData;
++	int i, ret;
++
++	daioData = malloc(sizeof (daio_t));
++	if (daioData == NULL)
++		return NULL;
++
++	blockSize = ROUND_SECTOR(blockSize);
++	daioData->blockSize = blockSize;
++	daioData->blockNum = blockNum;	
++
++	ret = posix_memalign((void **) &daioData->buffer, SECTOR_SIZE, blockSize*blockNum);
++	if (ret!=0){
++		free (daioData);
++		return NULL;
++	}
++
++	daioData->size = blockSize*blockNum;
++
++	// inizialize pointers	
++	daioData->inPtr = daioData->buffer;
++	daioData->outPtr = daioData->buffer;
++	daioData->pendingPtr = daioData->buffer;
++	daioData->pendingDataSize = 0;
++
++	/* Alloc the ioctl array */
++	daioData->iocb_ctrl = malloc(sizeof (iocb_ctrl_t) * blockNum);
++	if (daioData->iocb_ctrl == NULL){
++		free(daioData->buffer);
++		free(daioData);
++		return NULL;
++	}
++
++	for (i=0; i<blockNum; i++)
++		daioData->iocb_ctrl[i].mem_start = daioData->buffer + blockSize*i;
++
++	/* initialize AIO state machine */
++	memset(&daioData->ctx, 0, sizeof(io_context_t));
++	io_queue_init(blockNum, &daioData->ctx);
++	daioData->requests = 0;
++	return daioData;
++}
++
++void daio_deinit(daio_t *daioData)
++{
++	/* release the AIO queue */
++	io_queue_release(daioData->ctx);
++
++	/* free buffers and structs */
++	free(daioData->buffer);
++	free(daioData->iocb_ctrl);
++	free(daioData);
++}
++
++static inline size_t daio_usedSpace(daio_t *daioData)
++{	
++	size_t ret;
++
++	if (daioData->inPtr >= daioData->outPtr)
++		ret = daioData->inPtr - daioData->outPtr;
++	else
++		ret = daioData->inPtr - daioData->outPtr + daioData->size;
++	return ret;
++}
++
++static inline size_t daio_freeSpace(daio_t *daioData)
++{
++	return daioData->size - daio_usedSpace(daioData)-1;
++}
++
++static off_t daio_lseek(daio_t *daioData, off_t offset, int whence) 
++{
++	int ret;
++	off_t new_offset, round_offset;
++	struct stat64 buf;
++	ssize_t rret;
++
++	// flush the buffer data
++	if (daio_flush(daioData)<0)
++		return -1;
++
++	switch(whence){
++		case SEEK_SET:
++			new_offset = offset;
++			break; 
++
++		case SEEK_CUR:
++			new_offset = daioData->fileOffset+offset;
++			break;
++
++		case SEEK_END:
++			if((ret=fstat64(daioData->fd, &buf))<0)
++				return -1;
++			new_offset = buf.st_size+offset;
++			break;
++
++		default:
++			errno = EINVAL;
++			return -1;
++	}
++	
++	round_offset = new_offset & ~(SECTOR_SIZE-1);
++
++	if ((ret=lseek(daioData->fd, round_offset, SEEK_SET))<0)
++		return ret;
++
++	daioData->inPtr = daioData->buffer;
++	daioData->outPtr = daioData->buffer;
++	daioData->pendingPtr = daioData->buffer;
++	daioData->pendingDataSize = 0;
++	daioData->fileOffset = round_offset;
++	daioData->initialFileSize = MAX(daioData->initialFileSize, new_offset);
++	
++	// fill the write buffer with unaligned data
++	if (round_offset != new_offset){
++		size_t rsize;
++		int flags;
++
++		/* change status flags to read */
++		if ((flags = fcntl(daioData->fd, F_GETFL))<0)
++			return flags;
++		if ((ret = fcntl(daioData->fd, F_SETFL, flags&~O_DIRECT))<0)
++			return ret;
++		rsize =  new_offset-round_offset;
++		if ((rret=read(daioData->fd, (void*) daioData->inPtr, rsize))!=rsize)
++			return -1;
++
++		// restore flags
++		if ((ret = fcntl(daioData->fd, F_SETFL, flags))<0)
++			return ret;
++
++		daioData->inPtr += rsize;
++		daioData->pendingDataSize = rsize;
++
++	}
++
++	return new_offset;
++}
++
++/*
++	Flush data in the ring buffer
++*/
++int daio_flush(daio_t *daioData)
++{
++	int ret, flags;
++	ssize_t wret;
++
++	/* wait the last write to complete */
++	while(daioData->requests){
++		if ((ret=daio_wait_free_space(daioData, 1))<0)
++			return ret;
++	}
++
++	if (daioData->pendingDataSize==0)
++		return 0;
++
++	/* change status flags to write the last bytes */
++	if ((flags = fcntl(daioData->fd, F_GETFL))<0)
++		return flags;
++	flags &= ~O_DIRECT;
++
++	if ((ret = fcntl(daioData->fd, F_SETFL, flags))<0)
++		return ret;
++
++	/* seek to the current write position */
++	if (lseek(daioData->fd, daioData->fileOffset, SEEK_SET)<0)
++		return -1;
++	
++	/* write the data */
++	wret = write(daioData->fd, daioData->pendingPtr, daioData->pendingDataSize);
++	if (wret < 0)
++		return wret;
++	if (wret < daioData->pendingDataSize)
++		return -1;
++
++	daioData->fileOffset += daioData->pendingDataSize;
++	return 0;
++}
++
++/*
++	Process the done queue events
++*/
++static inline int write_done(daio_t *daioData, iocb_ctrl_t *iocb_ctrl, long res)
++{
++	if (res != daioData->blockSize){							/* return value from the write function */
++		syslog(LOG_ERR, "Wrote only %ld bytes!", res);
++		exit(1);
++	}
++
++	if (iocb_ctrl->mem_start == daioData->outPtr){
++		daioData->outPtr += daioData->blockSize;
++		if (daioData->outPtr >= daioData->buffer+daioData->size)
++			daioData->outPtr -= daioData->size;
++	} else {
++		syslog(LOG_ERR, "Out of sequence event!\n");
++		exit(1);	
++	}
++
++	daioData->requests--;
++	return 0;
++}
++
++#define MAX_EVENTS	10
++static int daio_wait_free_space(daio_t *daioData, size_t count)
++{
++	struct io_event *event, events[MAX_EVENTS];
++	iocb_ctrl_t *iocb_ctrl;
++	int io_ret, ret, i;
++
++	for (;;){
++		/* wait for an event */
++		io_ret = io_getevents(daioData->ctx, 1, MAX_EVENTS, events, NULL);
++		if (io_ret < 0) {
++			syslog(LOG_ERR, "io_getevents returned %d", io_ret);
++			return io_ret;
++		}
++		
++		for (i=0; i<io_ret; i++){
++			event = events+i;
++			if ((int)event->res < 0) {			/* return value from the write function */
++				syslog(LOG_ERR, "io_getevents event.res %lu", event->res);
++				return event->res;
++			}
++			if ((int)event->res2 < 0) {						/* aio error */
++				syslog(LOG_ERR, "io_getevents event.res2 %lu", event->res2);
++				return event->res2;
++			}
++
++			iocb_ctrl = (iocb_ctrl_t *) event->data;
++			if ((ret = write_done(daioData, iocb_ctrl, event->res)) < 0)
++				return ret;
++		}
++
++		if (daio_freeSpace(daioData) >= count)
++			break;
++	}
++
++	return 0;
++}
++
++static int daio_submit_write(daio_t *daioData)
++{
++	struct iocb *iocb; 
++	int ret, i;
++
++	for (i=0; i<daioData->blockNum; i++){
++		if (daioData->pendingPtr == daioData->iocb_ctrl[i].mem_start)
++			break;
++	}
++
++	if (i >= daioData->blockNum){
++		syslog(LOG_ERR, "daio internal error");
++		printf("daio internal error\n");
++		exit(0);
++	}
++
++	io_prep_pwrite(&daioData->iocb_ctrl[i].iocb, daioData->fd, daioData->pendingPtr, 
++				daioData->blockSize, daioData->fileOffset);
++	daioData->iocb_ctrl[i].iocb.data = (void *) &daioData->iocb_ctrl[i];
++	iocb = &daioData->iocb_ctrl[i].iocb;
++
++	/* update pointers and file offset */		
++	daioData->pendingDataSize -= daioData->blockSize;
++	daioData->pendingPtr += daioData->blockSize;
++	if (daioData->pendingPtr>=daioData->buffer+daioData->size)
++		daioData->pendingPtr-=daioData->size;
++
++	daioData->fileOffset += daioData->blockSize;
++
++	/* submit the write request */
++	if ((ret = io_submit(daioData->ctx, 1, &iocb)) != 1) {
++		syslog(LOG_ERR, "io_submit failed: %d", ret);
++		return -1;
++	}
++
++	daioData->requests++;
++	return 0;
++}
++
++struct vsf_transfer_ret do_file_recv_aio(p_sess, file_fd)
++{
++	daio_t *daio;
++	unsigned int to_read, to_write, chunk_size = VSFTP_DATA_BUFSIZE;
++	struct vsf_transfer_ret ret_struct = { 0, 0 };
++	struct stat64 buf;
++	int oflag, ret;
++	
++	oflag = fcntl(file_fd, F_GETFL) & ~O_ACCMODE;
++	oflag |= O_DIRECT;
++	ret = fcntl(file_fd, F_SETFL, oflag);
++
++	if (ret < 0)	{
++		syslog(LOG_ERR, "fcntl failed with %d", errno);
++		ret_struct.retval = -2;
++		goto err_deinit;
++	}
++
++	if (fstat64(file_fd, &buf) < 0) {
++		syslog(LOG_ERR, "fstat  failed with %d", errno);
++		ret_struct.retval = -2;
++		goto err_deinit;
++	}
++
++	daio = daio_init(BLOCK_SIZE, 16);
++	daio->fd = file_fd;
++	daio->initialFileSize = buf.st_size;
++	daio->fileOffset = (oflag & O_APPEND) ? buf.st_size : 0;
++
++	while (1) {
++		if (daio_freeSpace(daio) < chunk_size) {
++			// wait for free space into the ring
++			if (daio_wait_free_space(daio, chunk_size) < 0) {
++				syslog(LOG_ERR, "no free space");
++				ret_struct.retval = -2;
++				break;
++			}
++		}
++
++		// if needed, reduce the byte count
++		to_read = chunk_size;
++		if (daio->inPtr+chunk_size >= daio->buffer+daio->size)
++			to_read = daio->buffer+daio->size - daio->inPtr;
++
++		// read data from the file descriptor to the ring
++		ret = ftp_read_data(p_sess, daio->inPtr, to_read);
++
++		if (vsf_sysutil_retval_is_error(ret)) {
++			syslog(LOG_ERR, "socket read failed");
++			ret_struct.retval = -2;
++			break;
++		}
++		
++		if (ret == 0) {
++			/* Transfer done, nifty */
++			break;
++		}	
++		
++		to_write = (unsigned int) ret;
++		ret_struct.transferred += to_write;
++
++		daio->inPtr += to_write;
++		if (daio->inPtr >= daio->buffer+daio->size)
++			daio->inPtr -= daio->size;
++
++		daio->pendingDataSize += to_write;
++		if (daio->pendingDataSize >= daio->blockSize) {
++			if (daio_submit_write(daio) <0) {
++				syslog(LOG_ERR, "daio submit failed");
++				ret_struct.retval = -2;
++				break;
++			}
++		}
++	}
++
++	if (daio_flush(daio) < 0) {
++		syslog(LOG_ERR, "daio flush failed");
++		ret_struct.retval = -2;
++	}
++
++err_deinit:	
++	daio_deinit(daio);
++	return ret_struct;
++}

@@ -21,7 +21,7 @@ define Package/lualdap
   CATEGORY:=Languages
   TITLE:=Lua LDAP Library
   URL:=http://github.com/tobiaswaldvogel
-  DEPENDS:=+libopenldap +liblua
+  DEPENDS:=+libopenldap-sasl +liblua
 endef
 
 define Package/lualdap/description

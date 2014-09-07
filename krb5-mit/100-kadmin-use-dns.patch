@@ -1,0 +1,34 @@
+--- a/src/lib/kadm5/alt_prof.c	2011-11-05 02:57:09.577638324 +0100
++++ b/src/lib/kadm5/alt_prof.c	2011-11-05 02:57:51.735624491 +0100
+@@ -590,6 +590,31 @@
+     if (context->profile_secure == TRUE) envname = 0;
+ 
+     kret = krb5_aprof_init(filename, envname, &aprofile);
++
++    if (kret) {
++        struct addrlist addrs;
++        unsigned int i;
++        krb5_data realm;
++
++        realm.data   = (void*)params.realm;
++        realm.length = strlen(params.realm);
++        if (k5_locate_server(context, &realm, &addrs,
++                                   locate_service_kadmin, SOCK_STREAM, AF_INET))
++            goto cleanup;
++
++        for (i=0; i<addrs.naddrs; i++ ) {
++            if (addrs.addrs[i].ai->ai_family != AF_INET)
++                continue;
++
++            params.admin_server  = strdup(inet_ntoa(sa2sin(addrs.addrs[i].ai->ai_addr)->sin_addr));
++            params.kadmind_port  = ntohs(sa2sin(addrs.addrs[i].ai->ai_addr)->sin_port);
++            params.mask |= KADM5_CONFIG_ADMIN_SERVER;
++            params.mask |= KADM5_CONFIG_KADMIND_PORT;
++            kret = 0;
++            break;
++        }
++    }
++
+     if (kret)
+         goto cleanup;
+ 

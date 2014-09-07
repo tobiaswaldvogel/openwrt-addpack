@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2011 OpenWrt.org
+
+START=50
+
+WORKDIR=/var/run/saslauthd
+PIDFILE=/var/run/saslauthd/saslauthd.pid
+BIN=/usr/sbin/saslauthd
+
+start() {
+	mkdir -m 0755 -p $WORKDIR
+	$BIN -n 0 -a kerberos5
+}
+
+stop() {
+	[ -f $PIDFILE ] && kill $(cat $PIDFILE)
+}

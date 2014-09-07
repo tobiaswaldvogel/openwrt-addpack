@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2010 OpenWrt.org
+
+START=99
+BIN=/usr/bin/shellinaboxd
+PID=/var/run/shellinabox.pid
+SSD=start-stop-daemon
+
+start() {
+        $SSD -p $PID -S -x $BIN --  --background=$PID --service=/webterm:SSH --localhost-only -g 0 -u 0 
+}
+	
+stop() {
+        $SSD -p $PID -K -s SIGINT
+}

@@ -1,0 +1,64 @@
+include         /etc/openldap/schema/core.schema
+include         /etc/openldap/schema/cosine.schema
+include         /etc/openldap/schema/inetorgperson.schema
+include         /etc/openldap/schema/nis.schema
+include         /etc/openldap/schema/kerberos.schema
+include         /etc/openldap/schema/samba.schema
+
+pidfile		/var/run/slapd.pid
+argsfile	/var/run/slapd.args
+
+defaultsearchbase	"|BASEDN|"
+serverid	|SERVERID|
+
+|SASLHOST|
+|SASLREALM|
+sasl-secprops	none
+
+database	ldif
+rootDN		"|BASEDN|"
+suffix		"|BASEDN|"
+directory	"|DATADIR|"
+overlay         syncprov
+
+authz-regexp
+	gidNumber=0\\+uidNumber=0,cn=peercred,cn=external,cn=auth
+	"cn=Manager,ou=System Users,|BASEDN|"
+
+authz-regexp
+	gidNumber=(.*)\\+uidNumber=(.*),cn=peercred,cn=external,cn=auth
+	ldap:///|BASEDN|??sub?(uidNumber=$1)
+
+access to dn.base=""
+	by dn="cn=Manager,ou=System Users,|BASEDN|" write
+	by * read
+
+access to dn.base="cn=Subschema" by * read
+
+# protect kerberos principals
+access to dn.regex="cn=Kerberos,dc=.*" attrs=entry,objectClass
+        by dn="cn=Manager,ou=System Users,|BASEDN|" write
+        by * read
+
+access to dn.regex="cn=Kerberos,dc=.*"
+        by dn="cn=Manager,ou=System Users,|BASEDN|" write
+        by * none
+
+# protect passwords
+access to attrs=userPassword
+	by dn="cn=Manager,ou=System Users,|BASEDN|" write
+	by self write
+	by anonymous auth
+
+# required by nss_ldap
+access to attrs=entry,uid,uidNumber,gidNumber,cn,memberUid,homeDirectory,loginShell,gecos,description,objectClass
+	by dn="cn=Manager,ou=System Users,|BASEDN|" write
+	by self write
+	by * read
+
+access to *
+        by dn="cn=Manager,ou=System Users,|BASEDN|" write
+        by self write
+        by users read
+        by anonymous auth
+

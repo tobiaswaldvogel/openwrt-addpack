@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=quota
-PKG_VERSION:=4.00
+PKG_VERSION:=4.01
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
@@ -41,7 +41,7 @@ CONFIGURE_ARGS += \
 	--mandir=$(PKG_INSTALL_DIR)/usr/man
 
 TARGET_CFLAGS += $(LIBRPC_INCLUDE)
-EXTRA_LDFLAGS += $(LIBRPC) -lext2fs $(STAGING_DIR)/usr/lib/libcom_err.so.2 -L$(PKG_BUILD_DIR)
+EXTRA_LDFLAGS += $(LIBRPC) -lext2fs -l:$(STAGING_DIR)/usr/lib/libcom_err.so.0 -L$(PKG_BUILD_DIR)
 MAKE_FLAGS += \
 	RPCGEN_PATH=$(STAGING_DIR_HOST)/bin/rpcgen \
         RPCGEN=$(STAGING_DIR_HOST)/bin/rpcgen

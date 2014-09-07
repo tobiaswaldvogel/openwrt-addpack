@@ -1,6 +1,6 @@
---- a/source3/configure	2012-12-30 20:35:33.727515216 +0100
-+++ b/source3/configure	2012-12-30 20:36:33.365798707 +0100
-@@ -14564,10 +14564,7 @@
+--- a/source3/configure
++++ b/source3/configure
+@@ -14396,10 +14396,7 @@
  	# see bug 5910, use our replacements if we detect
  	# a broken system.
  	if test "$cross_compiling" = yes; then :

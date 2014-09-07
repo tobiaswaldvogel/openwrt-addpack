@@ -1,0 +1,30 @@
+--- a/src/plugins/kdb/ldap/libkdb_ldap/ldap_krbcontainer.c	2013-02-22 21:50:52.673066140 +0100
++++ b/src/plugins/kdb/ldap/libkdb_ldap/ldap_krbcontainer.c	2013-02-22 21:55:50.270514124 +0100
+@@ -112,17 +112,10 @@
+         }
+     }
+ 
+-    if (cparams->DN == NULL) {
+-        st = KRB5_KDB_SERVER_INTERNAL_ERR;
+-        krb5_set_error_message(context, st,
+-                               _("Kerberos container location not specified"));
+-        goto cleanup;
+-    }
+-
+     /* NOTE: krbmaxtktlife, krbmaxrenewableage ... present on Kerberos Container is
+      * not read
+      */
+-    LDAP_SEARCH_1(cparams->DN, LDAP_SCOPE_BASE, "(objectclass=krbContainer)", policyrefattribute, IGNORE_STATUS);
++    LDAP_SEARCH_1(cparams->DN, LDAP_SCOPE_SUBTREE, "(objectclass=krbContainer)", policyrefattribute, IGNORE_STATUS);
+     if (st != LDAP_SUCCESS && st != LDAP_NO_SUCH_OBJECT) {
+         st = set_ldap_error(context, st, OP_SEARCH);
+         goto cleanup;
+@@ -134,6 +127,8 @@
+     }
+ 
+     if ((ent = ldap_first_entry(ld, result))) {
++        if (cparams->DN == NULL)
++            cparams->DN = ldap_get_dn(ld, ent);
+         if ((st=krb5_ldap_get_string(ld, ent, "krbticketpolicyreference",
+                                      &(cparams->policyreference), NULL)) != 0)
+             goto cleanup;

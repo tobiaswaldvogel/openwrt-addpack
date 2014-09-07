@@ -11,7 +11,7 @@
  	if (!str1 || !str2 || !p) {
  		return False;
  	}
-@@ -3819,10 +3823,7 @@ static bool api_RNetServerGetInfo(struct
+@@ -3574,10 +3578,7 @@ static bool api_RNetServerGetInfo(struct
  	NTSTATUS status;
  	WERROR werr;
  	TALLOC_CTX *mem_ctx = talloc_tos();
@@ -22,7 +22,7 @@
  
  	if (!str1 || !str2 || !p) {
  		return False;
-@@ -3885,66 +3886,16 @@
+@@ -3640,66 +3641,16 @@
  	p = *rdata;
  	p2 = p + struct_len;
  
@@ -94,7 +94,7 @@
  	}
  
  	if (uLevel > 1) {
-@@ -5637,6 +5588,10 @@ static bool api_RNetSessionEnum(struct s
+@@ -5392,6 +5343,10 @@ static bool api_RNetSessionEnum(struct s
  	uint32_t totalentries, resume_handle = 0;
  	uint32_t count = 0;
  

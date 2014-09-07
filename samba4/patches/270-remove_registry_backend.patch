@@ -30,7 +30,7 @@
  			"supported by backend");
 --- a/source3/smbd/server.c
 +++ b/source3/smbd/server.c
-@@ -1425,8 +1425,10 @@ extern void build_options(bool screen);
+@@ -1435,8 +1435,10 @@ extern void build_options(bool screen);
  		exit(1);
  	}
  

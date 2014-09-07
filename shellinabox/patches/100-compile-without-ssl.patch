@@ -1,0 +1,116 @@
+--- a/libhttp/httpconnection.c	2014-08-08 10:30:44.703575410 -0500
++++ b/libhttp/httpconnection.c	2014-08-08 10:58:57.988500052 -0500
+@@ -85,6 +85,7 @@
+ #define MAX_HEADER_LENGTH   (64<<10)
+ #define CONNECTION_TIMEOUT  (10*60)
+ 
++#ifdef HAVE_OPENSSL_SSL_H
+ static int httpPromoteToSSL(struct HttpConnection *http, const char *buf,
+                             int len) {
+   if (http->ssl->enabled && !http->sslHndl) {
+@@ -112,10 +113,12 @@
+     return -1;
+   }
+ }
++#endif
+ 
+ static ssize_t httpRead(struct HttpConnection *http, char *buf, ssize_t len) {
+   sslBlockSigPipe();
+   int rc;
++#ifdef HAVE_OPENSSL_SSL_H
+   if (http->sslHndl) {
+     dcheck(!ERR_peek_error());
+     rc                        = SSL_read(http->sslHndl, buf, len);
+@@ -139,9 +142,13 @@
+     }
+     dcheck(!ERR_peek_error());
+   } else {
++#else
+     rc = NOINTR(read(http->fd, buf, len));
++#endif
++#ifdef HAVE_OPENSSL_SSL_H
+   }
+   sslUnblockSigPipe();
++#endif
+   if (rc > 0) {
+     serverSetTimeout(httpGetServerConnection(http), CONNECTION_TIMEOUT);
+   }
+@@ -152,6 +159,7 @@
+                          ssize_t len) {
+   sslBlockSigPipe();
+   int rc;
++#ifdef HAVE_OPENSSL_SSL_H
+   if (http->sslHndl) {
+     dcheck(!ERR_peek_error());
+     rc                        = SSL_write(http->sslHndl, buf, len);
+@@ -175,13 +183,18 @@
+     }
+     dcheck(!ERR_peek_error());
+   } else {
++#else
+     rc = NOINTR(write(http->fd, buf, len));
++#endif
++#ifdef HAVE_OPENSSL_SSL_H
+   }
+   sslUnblockSigPipe();
++#endif
+   return rc;
+ }
+ 
+ static int httpShutdown(struct HttpConnection *http, int how) {
++#ifdef HAVE_OPENSSL_SSL_H
+   if (http->sslHndl) {
+     int rc        = 0;
+     if (how != SHUT_RD) {
+@@ -206,6 +219,7 @@
+       sslFreeHndl(&http->sslHndl);
+     }
+   }
++#endif
+   return shutdown(http->fd, how);
+ }
+ 
+@@ -1435,9 +1449,11 @@
+           httpCloseRead(http);
+           eof                        = 1;
+         } else {
++#ifdef HAVE_OPENSSL_SSL_H
+           if (http->sslHndl && http->lastError == SSL_ERROR_WANT_WRITE) {
+             *events                 |= POLLOUT;
+           }
++#endif
+         }
+         bytes                        = 0;
+       }
+@@ -1474,6 +1490,7 @@
+           method[j]                  = ch & ~0x20;
+         }
+       }
++#ifdef HAVE_OPENSSL_SSL_H
+       if (isSSL) {
+         if (httpPromoteToSSL(http, buf, bytes) < 0) {
+           httpCloseRead(http);
+@@ -1485,6 +1502,7 @@
+           continue;
+         }
+       }
++#endif
+     }
+ 
+     if (bytes > 0 || (eof && http->partial)) {
+@@ -1682,6 +1700,7 @@
+     }
+   
+     if ((!(*events || http->isSuspended) || timedOut) && http->sslHndl) {
++#ifdef HAVE_OPENSSL_SSL_H
+       *events                        = 0;
+       serverSetTimeout(connection, 1);
+       int wasAlreadyClosed           = http->closed;
+@@ -1717,6 +1736,7 @@
+         *events                      = 0;
+         sslFreeHndl(&http->sslHndl);
+       }
++#endif
+     } else if (!http->sslHndl && timedOut) {
+       *events                        = 0;
+       serverSetTimeout(connection, 0);

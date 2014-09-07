@@ -1,5 +1,5 @@
---- a/source3/lib/smbldap.c	2012-07-27 23:46:34.263321077 +0200
-+++ b/source3/lib/smbldap.c	2012-07-27 23:55:23.854641486 +0200
+--- a/source3/lib/smbldap.c
++++ b/source3/lib/smbldap.c
 @@ -876,7 +876,15 @@
  	    Could we get a referral to a machine that we don't want to give our
  	    username and password to? */
@@ -34,9 +34,9 @@
  	}
  
  	if (rc != LDAP_SUCCESS) {
---- a/source3/passdb/pdb_ldap.c	2013-02-01 19:46:12.318981725 +0100
-+++ b/source3/passdb/pdb_ldap.c	2013-02-01 19:54:10.724110976 +0100
-@@ -6433,16 +6433,21 @@
+--- a/source3/passdb/pdb_ldap.c
++++ b/source3/passdb/pdb_ldap.c
+@@ -6451,16 +6451,21 @@
  	}
  
  	if (!fetch_ldap_pw(&bind_dn, &bind_secret)) {

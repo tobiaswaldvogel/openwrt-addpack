@@ -13,7 +13,7 @@ define Package/luci-app-idm
   SECTION:=luci
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
-  DEPENDS:=+openldap-server +krb5-server +krb5-ldap +lualdap +luadigest
+  DEPENDS:=+openldap-sasl-server +krb5-mit-server +krb5-mit-ldap +lualdap +luadigest
   TITLE:=Identity management for LDAP/Kerberos
 endef
 

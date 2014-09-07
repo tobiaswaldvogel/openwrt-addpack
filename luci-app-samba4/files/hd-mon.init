@@ -1,0 +1,96 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008 OpenWrt.org
+START=95
+MDADM=/usr/sbin/mdadm
+SMARTD=/usr/sbin/smartd
+
+general() {
+	local section="$1"
+	config_get      "email" "$section" "email"
+	config_get_bool "test"  "$section" "test" '0'
+}
+
+raid_mon() {
+	local section="$1"
+	local testcmd=""
+		 
+        config_get_bool "enabled" "$section" "enabled" '0'
+
+	[ "$test" -ne "0" ] && testcmd="--test "
+	[ "$enabled" -ne "0" ] && [ -x $MDADM ] && $MDADM --monitor --scan --daemonize $testcmd --mail=$email >/dev/null 2>/dev/null
+}
+
+smart_mon() {
+	local section="$1"
+	local tescmd=""
+
+	config_get      "disk"      "$section" "disk"
+	config_get_bool "enabled"   "$section" "enabled"   '0'
+	config_get      "temp_info" "$section" "temp_info" '0'
+	config_get      "temp_warn" "$section" "temp_warn" '0'
+
+	[ "$test" -ne 0 ] && testcmd="-M test "
+	[ "$enabled" -ne "0" ] && echo $disk -n standby,q -H -l error -W 0,$temp_info,$temp_warn -m $email -M exec /var/smartd/smartd.mail $testcmd >>/var/smartd/smartd.conf	
+}
+
+ssmtp() {
+	local section="$1"
+	
+	config_get "mx"	      "$section" "mx"
+	config_get "sender"   "$section" "sender"
+	config_get "user"     "$section" "user"
+	config_get "pwd"      "$section" "pwd"
+	config_get "authtype" "$section" "authtype"
+	config_get_bool "TLS" "$section" "TLS"
+
+	mkdir -p /var/etc
+	echo  >/var/etc/revaliases "root:$sender"
+	echo  >/var/etc/ssmtp.conf "mailhub=$mx"
+	echo >>/var/etc/ssmtp.conf "root=$sender"
+
+	[ -n "$user" ]   && echo >>/var/etc/ssmtp.conf "AuthUser=$user"
+	[ -n "$pwd" ]    && echo >>/var/etc/ssmtp.conf "AuthPass=$pwd"
+	[ -n $authtype ] && echo >>/var/etc/ssmtp.conf "AuthMethod=\"$authtype\""
+	[ "$TLS" -ne 0 ] && {
+		echo >>/var/etc/ssmtp.conf "UseTLS=yes"
+		echo >>/var/etc/ssmtp.conf "UseStartTLS=yes"
+	}
+}
+
+run_smart_mon() {
+	cat <<EOF >/var/smartd/smartd.mail
+#!/bin/sh
+{
+	echo Subject: \$2
+	cat
+} | sendmail \$3
+EOF
+                 
+	chmod 755  /var/smartd/smartd.mail
+	$SMARTD -i 21600 -c /var/smartd/smartd.conf
+}
+
+start() {
+	mkdir -p /var/etc
+	mkdir -p /var/smartd
+	rm /var/smartd/* >/dev/null 2>&1
+
+	config_load "hd-mon"
+	config_foreach ssmtp "ssmtp"
+	config_foreach general "hdmon"
+	config_foreach raid_mon "raid"
+	config_foreach smart_mon "smart"
+	[ -e /var/smartd/smartd.conf ] && [ -x $SMARTD ] && run_smart_mon
+}
+
+stop()	{
+	killall mdadm
+	killall smartd
+	rm /var/smartd/*  >/dev/null 2>&1
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}

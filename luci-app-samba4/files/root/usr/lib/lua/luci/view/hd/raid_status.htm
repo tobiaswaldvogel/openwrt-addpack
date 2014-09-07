@@ -1,0 +1,33 @@
+<%-
+function raid_status(callback)
+	if luci.fs.access("/proc/mdstat") then
+	        local mdstat =  luci.util.execl("cat /proc/mdstat")
+
+		for _,line in ipairs(mdstat) do
+			if line:sub(5,5) == ":" then
+				local raiddev = {
+					name = line:sub(1,3),
+					status = line:sub(7)
+				}
+				callback(raiddev)
+			end
+		end
+	end
+end
+-%>
+
+<fieldset class="cbi-section">
+	<legend><%:Raid arrays%></legend>
+	<table class="cbi-section-table" id="raid_status_table">
+		<tr class="cbi-section-table-titles">
+			<th class="cbi-section-table-cell" width="20%"><%:Raid device%></th>
+			<th class="cbi-section-table-cell" width="20%"><%:Status%></th>
+		</tr>
+		<% local style=true; raid_status(function(raiddev) %>
+		<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>">
+			<td class="cbi-value-field"><%=raiddev.name%></td>
+			<td class="cbi-value-field"><%=raiddev.status%></td>
+		</tr>
+		<% style = not style; end) %>
+	</table>
+</fieldset>

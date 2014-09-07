@@ -1,0 +1,191 @@
+--- a/Makefile	2012-06-22 23:14:37.204932158 +0200
++++ b/Makefile	2012-06-22 23:31:54.355756952 +0200
+@@ -41,7 +41,7 @@
+ 
+ LIB_SUBDIRS = libxfs libxlog libxcmd libhandle libdisk
+ TOOL_SUBDIRS = copy db estimate fsck fsr growfs io logprint mkfs quota \
+-		mdrestore repair rtcp m4 man doc debian
++		mdrestore repair rtcp m4 man doc debian multi
+ 
+ SUBDIRS = include $(LIB_SUBDIRS) $(TOOL_SUBDIRS)
+ 
+@@ -62,6 +62,7 @@
+ mkfs: libxfs
+ quota: libxcmd
+ repair: libxfs libxlog
++multi: repair db
+ 
+ ifneq ($(ENABLE_BLKID), yes)
+ mkfs: libdisk
+--- a/multi/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ b/multi/Makefile	2012-06-24 01:37:46.261111008 +0200
+@@ -0,0 +1,128 @@
++#
++# Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
++#
++
++TOPDIR = ..
++include $(TOPDIR)/include/builddefs
++
++COMPILE_CC_PATH = $(CC) $(PATH_FLAGS) $(CFLAGS) $(PICFLAG) -c $< -o $@
++
++../repair/xfs_repair_multi.o: ../repair/xfs_repair.c ../repair/xfs_repair.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=xfs_repair_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++../db/init_multi.o: ../db/init.c ../db/init.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=xfs_db_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++../db/db_sb.o: ../db/sb.c ../db/sb.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dxlog_recover_do_trans=xlog_recover_do_trans_dummy && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++../db/db_input.o: ../db/input.c ../db/input.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dfetchline=fetchline_dummy -Dbreakline=breakline_dummy -Ddoneline=doneline_dummy && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++../mkfs/xfs_mkfs_multi.o: ../mkfs/xfs_mkfs.c ../mkfs/xfs_mkfs.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=xfs_mkfs_main -Dcvtnum=cvtnum_mkfs && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++../growfs/xfs_growfs_multi.o: ../growfs/xfs_growfs.c ../growfs/xfs_growfs.o
++	@echo Compiling $<.c
++	@$(COMPILE_CC_PATH) -Dmain=xfs_growfs_main && exit 0;\
++		echo "The following command failed:" 1>&2;\
++		echo "$(COMPILE_CC_PATH)" 1>&2;\
++		$(COMPILE_CC_PATH) >/dev/null 2>&1
++
++XFS_REPAIR = ../repair/agheader.o ../repair/attr_repair.o \
++	../repair/avl.o ../repair/avl64.c ../repair/bmap.o \
++	../repair/btree.o ../repair/dino_chunks.o \
++	../repair/dinode.o ../repair/dir.c ../repair/dir2.o \
++	../repair/globals.o ../repair/incore.o \
++	../repair/incore_bmc.o ../repair/init.o \
++	../repair/incore_ext.o ../repair/incore_ino.o \
++	../repair/phase1.o ../repair/phase2.o \
++	../repair/phase3.o ../repair/phase4.o \
++	../repair/phase5.o ../repair/phase6.o \
++	../repair/phase7.o ../repair/progress.o \
++	../repair/prefetch.o ../repair/rt.o \
++	../repair/sb.o ../repair/scan.o ../repair/threads.o \
++        ../repair/versions.o ../repair/xfs_repair_multi.o
++
++XFS_DB = \
++	../db/addr.o  ../db/attrset.o    ../db/bmroot.o \
++	../db/debug.o ../db/dquot.o      ../db/fprint.o \
++	../db/metadump.o   ../db/sig.o \
++	../db/agf.o   ../db/attrshort.o  ../db/btblock.o \
++	../db/dir2.o      ../db/echo.o   ../db/frag.o \
++	../db/inode.o   ../db/output.o    ../db/strvec.o \
++	../db/agfl.o  ../db/bit.o        ../db/check.o \
++	../db/dir2sf.o    ../db/faddr.o  ../db/freesp.o \
++	../db/db_input.o   ../db/print.o     ../db/text.o \
++	../db/agi.o   ../db/block.o      ../db/command.o \
++	../db/dir.o       ../db/field.o  ../db/hash.o \
++	../db/io.o      ../db/quit.o      ../db/type.o \
++	../db/attr.o  ../db/bmap.o       ../db/convert.o \
++	../db/dirshort.o  ../db/flist.o  ../db/help.o \
++	../db/malloc.o  ../db/db_sb.o        ../db/write.o \
++	../db/init_multi.o
++
++XFS_MKFS = ../mkfs/maxtrres.o ../mkfs/proto.o ../mkfs/xfs_mkfs_multi.o
++
++XFS_GROWFS = ../growfs/xfs_growfs_multi.o
++
++LSRCFILES = README
++
++LTCOMMAND = xfs_tools
++
++CFILES = xfs_tools.c $(XFS_REPAIR) $(XFS_DB) $(XFS_MKFS) $(XFS_GROWFS)
++
++LLDLIBS = $(LIBXFS) $(LIBXCMD) $(LIBXLOG) $(LIBUUID) $(LIBRT) $(LIBPTHREAD)
++LTDEPENDENCIES = $(LIBXFS) $(LIBXCMD) $(LIBXLOG)
++LLDFLAGS = -static
++
++ifeq ($(ENABLE_BLKID),yes)
++LLDLIBS += $(LIBBLKID)
++CFLAGS += -DENABLE_BLKID
++else
++LLDLIBS += $(LIBDISK)
++LTDEPENDENCIES += $(LIBDISK)
++endif
++
++ifeq ($(ENABLE_READLINE),yes)
++LLDLIBS += $(LIBREADLINE) $(LIBTERMCAP)
++CFLAGS += -DENABLE_READLINE
++endif
++
++ifeq ($(ENABLE_EDITLINE),yes)
++LLDLIBS += $(LIBEDITLINE) $(LIBTERMCAP)
++CFLAGS += -DENABLE_EDITLINE
++endif
++
++default: depend $(LTCOMMAND)
++
++globals.o: globals.h
++
++include $(BUILDRULES)
++
++install: default
++	$(INSTALL) -m 755 -d $(PKG_ROOT_SBIN_DIR)
++	$(LTINSTALL) -m 755 $(LTCOMMAND) $(PKG_ROOT_SBIN_DIR)
++install-dev:
++
++-include .dep
+--- a/multi/xfs_tools.c	1970-01-01 01:00:00.000000000 +0100
++++ b/multi/xfs_tools.c	2012-06-24 01:23:53.621840325 +0200
+@@ -0,0 +1,38 @@
++#include <stdio.h>
++#include <string.h>
++
++extern int xfs_repair_main(int argc, char **argv);
++extern int xfs_db_main(int argc, char **argv);
++extern int xfs_mkfs_main(int argc, char **argv);
++extern int xfs_growfs_main(int argc, char **argv);
++
++static struct {
++	const char *name;
++	int (*func)(int argc, char **argv);
++} multicall[] = {
++	{ "xfs_repair", xfs_repair_main },
++	{ "fsck.xfs", xfs_repair_main },
++	{ "xfs_db", xfs_db_main },
++	{ "mkfs.xfs", xfs_mkfs_main },
++	{ "xfs_growfs", xfs_growfs_main },
++};
++
++#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
++
++int main(int argc, char **argv)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		if (strstr(argv[0], multicall[i].name))
++			return multicall[i].func(argc, argv);
++	}
++
++	fprintf(stderr, "Invalid multicall command, available commands:");
++	for (i = 0; i < ARRAY_SIZE(multicall); i++)
++		fprintf(stderr, " %s", multicall[i].name);
++
++	fprintf(stderr, "\n");
++
++	return 1;
++}

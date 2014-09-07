@@ -27,7 +27,7 @@ define Package/pam-krb5
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=PAM module for Kerbers 5
-  DEPENDS:= +krb5-libs +libpam
+  DEPENDS:= +krb5-mit-libs +libpam
   URL:=http://http://www.eyrie.org/~eagle/software/pam-krb5/
 endef
 

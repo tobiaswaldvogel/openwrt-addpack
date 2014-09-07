@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=samba
-PKG_VERSION:=4.0.5
+PKG_VERSION:=4.0.21
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
@@ -35,7 +35,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap +krb5-libs +libiconv +libacl +libreadline +libaio
+  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +libiconv +libacl +libreadline +libaio
 endef
 
 define Package/samba4-client
@@ -43,15 +43,14 @@ define Package/samba4-client
   CATEGORY:=Network
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
-  DEPENDS:=+libreadline +libncurses +libopenldap +krb5-libs +libaio +zlib
+  DEPENDS:=+libreadline +libncurses +libopenldap-sals +krb5-mit-libs +libaio +zlib
 endef
 
 define Package/samba4-server/config
-	config PACKAGE_SAMBA4_MAX_DEBUG_LEVEL
-		int "  Maximum level of compiled-in debug messages"
-		depends PACKAGE_samba4-server || PACKAGE_samba4-client
-		default -1
-
+config PACKAGE_SAMBA4_MAX_DEBUG_LEVEL
+	int "  Maximum level of compiled-in debug messages"
+	depends on PACKAGE_samba4-server || PACKAGE_samba4-client
+	default -1
 endef
 
 define Package/samba4-server/description
@@ -160,7 +159,7 @@ CONFIGURE_ARGS += \
 	--with-quotas \
 	--with-syslog \
 	--with-shared-modules=pdb_tdbsam,pdb_wbc_sam,idmap_nss,nss_info_template,auth_winbind,auth_wbc,auth_domain,vfs \
-	--with-static-modules=vfs_default,vfs_dirsort,vfs_posixacl
+	--with-static-modules=vfs_default,vfs_dirsort,vfs_posixacl,vfs_daio_linux
 
 MAKE_FLAGS += DYNEXP= PICFLAG= MODULES=
 

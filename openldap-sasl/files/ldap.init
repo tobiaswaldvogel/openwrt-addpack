@@ -1,0 +1,73 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2011 OpenWrt.org
+
+START=51
+
+PIDFILE=/var/run/slapd.pid
+CONFFILE=/var/etc/slapd.conf
+CLNTCONF=/var/etc/ldap.conf
+DATADIR=/etc/openldap/data
+SUFFIX=.ldif
+NSSWITCH=/var/etc/nsswitch.conf
+BIN=/usr/sbin/slapd
+
+add_line() {
+	echo >>$CONFFILE -e $1
+}
+
+start_server() {
+        config_get enabled  $1 enabled   "0"
+	config_get serverid $1 serverid "1"
+	config_get basedn   $1 basedn   "dc=local,dc=net"
+
+	[ "$enabled" -eq "1" ] && {
+		mkdir -p /var/etc
+		mkdir -p /var/run
+
+		KLIST=`klist -k /etc/krb5.keytab`
+		PRINC=${KLIST##*ldap/}
+		SASLREALM=${PRINC##*@}
+		SASLHOST=${PRINC%%@*}
+
+		[ -z $SASLREALM ] || {
+			SASLREALM="sasl-realm\t$SASLREALM"
+			SASLHOST="sasl-host\t$SASLHOST"
+		}
+
+		sed -e "s#|BASEDN|#$basedn#g" \
+		    -e "s#|DATADIR|#$DATADIR#g" \
+		    -e "s#|SERVERID|#$serverid#g" \
+		    -e "s#|SASLHOST|#$SASLHOST#g" \
+		    -e "s#|SASLREALM|#$SASLREALM#g" \
+		    /etc/openldap/slapd.conf.template > $CONFFILE
+		chmod 600 $CONFFILE
+
+		[ -d $DATADIR ] || mkdir -p $DATADIR
+
+		$BIN -h "ldapi:/// ldap://" -f $CONFFILE -s 0
+
+		[ -e /var/run/ldapi ] && {
+			echo -e "URI\tldapi:///" >$CLNTCONF
+			chmod 644 $CLNTCONF
+			sed -i -e "s/passwd:files$/passwd:files ldap/g" -e "s/group:files$/group:files ldap/g" $NSSWITCH
+		}
+	}
+
+	for file in /lib/upgrade/openldap/*; do [ -f $file ] && {
+		lua $file
+		rm $file
+	}
+	done
+}
+
+start() {
+	config_load ldap
+	config_foreach  start_server server
+}
+
+stop() {
+	[ -f $PIDFILE ] && {
+		sed -i -e "s/passwd:files ldap$/passwd:files/g" -e "s/group:files ldap$/group:files/g" $NSSWITCH
+		kill $(cat $PIDFILE)
+	}
+}

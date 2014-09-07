@@ -28,7 +28,7 @@
  	if (!ok) {
 --- a/source3/smbd/server_exit.c
 +++ b/source3/smbd/server_exit.c
-@@ -184,7 +184,9 @@ static void exit_server_common(enum serv
+@@ -193,7 +193,9 @@ static void exit_server_common(enum serv
  #endif
  
  		rpc_srvsvc_shutdown();
