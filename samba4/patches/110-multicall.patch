@@ -35,7 +35,7 @@
  # Note that all executable programs now provide for an optional executable suffix.
  
 -SBIN_PROGS = bin/smbd bin/nmbd @SWAT_SBIN_TARGETS@ @EXTRA_SBIN_PROGS@
-+SBIN_PROGS = bin/samba_multicall bin/smbd bin/nmbd @SWAT_SBIN_TARGETS@ @EXTRA_SBIN_PROGS@
++SBIN_PROGS = bin/samba4_multicall bin/smbd bin/nmbd @SWAT_SBIN_TARGETS@ @EXTRA_SBIN_PROGS@
  
  BIN_PROGS1 = bin/smbclient bin/net bin/smbspool \
  	bin/testparm bin/smbstatus bin/smbget \
@@ -128,7 +128,7 @@
 +MULTICALL_O = $(sort $(SMBD_MULTI_O) $(NMBD_MULTI_O) $(SMBPASSWD_MULTI_O) $(SMBCONTROL_MULTI_O) $(SMBTREE_MULTI_O) $(SMBSTATUS_MULTI_O) $(SMBCQUOTAS_MULTI_O) \
 +		     $(SMBCACLS_MULTI_O) $(NMBLOOKUP_MULTI_O) $(TESTPARM_MULTI_O) $(MULTI_O))
 +
-+bin/samba_multicall: $(BINARY_PREREQS) $(MULTICALL_O) $(LIBTALLOC) $(LIBTEVENT) $(LIBTDB) $(LIBWBCLIENT) @BUILD_POPT@
++bin/samba4_multicall: $(BINARY_PREREQS) $(MULTICALL_O) $(LIBTALLOC) $(LIBTEVENT) $(LIBTDB) $(LIBWBCLIENT) @BUILD_POPT@
 +	@echo Linking $@
 +	@$(CC) -o $@ $(MULTICALL_O) $(LDFLAGS) $(LDAP_LIBS) @SMBD_FAM_LIBS@ \
 +		$(KRB5LIBS) $(DYNEXP) $(PRINT_LIBS) $(AUTH_LIBS) \

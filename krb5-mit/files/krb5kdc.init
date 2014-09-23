@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009 OpenWrt.org
+
+START=52
+USE_PROCD=1
+
+reload_service() {
+	restart_service
+}
+
+service_triggers() {
+	procd_add_reload_trigger "krb5"
+}
+
+start_service() {
+	mkdir -p /var/tmp
+	mkdir -p /etc/krb5kdc
+
+	procd_open_instance
+	procd_set_param command /usr/sbin/krb5kdc -n
+	procd_set_param respawn
+	procd_close_instance
+
+	procd_open_instance
+	procd_set_param command /usr/sbin/kadmind -nofork
+	procd_set_param respawn
+	procd_close_instance
+}

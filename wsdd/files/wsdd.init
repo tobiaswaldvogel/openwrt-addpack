@@ -1,0 +1,27 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008 OpenWrt.org
+START=95
+USE_PROCD=1
+
+smb_header() {
+	config_get name        $1 name        "${hostname:-OpenWrt}"
+	config_get workgroup   $1 workgroup   "${hostname:-OpenWrt}"
+
+	procd_open_instance
+	procd_set_param command /usr/sbin/wsdd -F -n $name -w $workgroup
+	procd_set_param respawn
+	procd_close_instance
+}
+
+reload_service() {
+	restart_service
+}
+
+service_triggers() {
+	procd_add_reload_trigger "samba4"
+}
+
+start_service() {
+	config_load samba4
+	config_foreach smb_header samba
+}

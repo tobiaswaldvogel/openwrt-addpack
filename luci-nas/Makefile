@@ -17,7 +17,10 @@ define Package/luci-nas
 	+luci-mod-admin-full \
 	+luci-theme-bootstrap +luci-theme-openwrt \
 	+luci-proto-ppp +luci-lib-nixio \
-	+luci-app-hd-idle2 +luci-app-hd-mon +luci-app-idm \
+	+luci-app-hdidle +luci-app-smartd +luci-app-mdadm +luci-app-idm \
+	+luci-app-samba4 +luci-app-transmission \
+	+zoneinfo-simple +zoneinfo-core +zoneinfo-europe +zoneinfo-northamerica \
+	+vsftp-aio +wget +nfs4-server \
 	+lighttpd +lighttpd-mod-cgi +lighttpd-mod-redirect
 TITLE:=luci-nas
 endef

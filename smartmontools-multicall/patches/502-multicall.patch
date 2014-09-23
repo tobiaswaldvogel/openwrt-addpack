@@ -1,0 +1,29 @@
+--- a/smartd.cpp
++++ b/smartd.cpp
+@@ -127,7 +127,7 @@
+ 
+ 
+ // command-line: 1=debug mode, 2=print presets
+-static unsigned char debugmode = 0;
++unsigned char debugmode = 0;
+ 
+ // command-line: how long to sleep between checks
+ #define CHECKTIME 1800
+@@ -164,7 +164,7 @@
+ static int quit=0;
+ 
+ // command-line; this is the default syslog(3) log facility to use.
+-static int facility=LOG_DAEMON;
++int facility=LOG_DAEMON;
+ 
+ #ifndef _WIN32
+ // command-line: fork into background?
+@@ -1195,7 +1195,7 @@
+ #ifndef _WIN32
+ 
+ // Output multiple lines via separate syslog(3) calls.
+-static void vsyslog_lines(int priority, const char * fmt, va_list ap)
++void vsyslog_lines(int priority, const char * fmt, va_list ap)
+ {
+   char buf[512+EBUFLEN]; // enough space for exec cmd output in MailWarning()
+   vsnprintf(buf, sizeof(buf), fmt, ap);

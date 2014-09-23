@@ -1,0 +1,45 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008 OpenWrt.org
+START=95
+USE_PROCD=1
+
+ssmtp() {
+	local section="$1"
+	config_get "email" "$section" "email"
+}
+
+
+mdadm() {
+	local section="$1"
+	local testcmd=""
+	local mailcmd=""
+		 
+        config_get_bool "enabled"  "$section" "enabled"  '0'
+	config_get_bool "testmail" "$section" "testmail" '0'
+
+	[ "$testmail" -ne "0" ] && testcmd="--test "
+	[ -n "$email" ] && mailcmd="--mail=$email "
+	[ "$enabled" -ne "0" ]  && {
+		procd_open_instance
+		procd_set_param command /sbin/mdadm --monitor --scan $testcmd $mailcmd 
+                procd_set_param respawn
+                procd_close_instance
+	}
+}
+
+reload_service() {
+	restart_service
+}
+
+service_triggers() {
+	procd_add_reload_trigger "mdadm" "ssmtp"
+}
+
+start_service() {
+	mkdir -p /var/etc
+
+	config_load ssmtp
+	config_foreach ssmtp ssmtp
+	config_load mdadm
+	config_foreach mdadm mdadm
+}

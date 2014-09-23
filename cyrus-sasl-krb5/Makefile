@@ -15,12 +15,10 @@ PKG_MAINTAINER:=W. Michael Petullo <mike@flyn.org>
 
 PKG_SOURCE:=cyrus-sasl-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=ftp://ftp.cyrusimap.org/cyrus-sasl/
-PKG_MD5SUM:=a7f4e5e559a0e37b3ffc438c9456e425
+PKG_MD5SUM:=
 
 PKG_LICENSE:=BSD-4c BSD
 PKG_LICENSE_FILES:=COPYING cmulocal/COPYING saslauthd/COPYING
-
-PKG_BUILD_DEPENDS:=libopenssl
 
 PKG_FIXUP:=autoreconf
 PKG_MACRO_PATHS:=cmulocal config ../cmulocal ../config
@@ -37,7 +35,7 @@ define Package/libsasl2-krb5
   CATEGORY:=Libraries
   TITLE:=A general purpose authentication library (with krb5)
   URL:=http://asg.web.cmu.edu/sasl/
-  DEPENDS:=+krb5-mit-libs +libopenssl
+  DEPENDS:=+krb5-mit-client-libs +libopenssl
 endef
 
 define Package/sasl2-krb5
@@ -53,7 +51,7 @@ TARGET_CPPFLAGS += $(FPIC) -I$(STAGING_DIR)/usr/include/krb5
 
 CONFIGURE_ARGS += \
 	--enable-shared \
-	--enable-static \
+	--disable-static \
 	--disable-sample \
 	--enable-staticdlopen \
 	--disable-java \
@@ -118,16 +116,18 @@ define Build/Compile
 		all install
 endef
 
-#define Build/InstallDev
-#	$(INSTALL_DIR) $(1)/usr/include/
-#	$(CP) $(PKG_INSTALL_DIR)/usr/include/sasl $(1)/usr/include/
-#	$(INSTALL_DIR) $(1)/usr/lib/
+define Build/InstallDev
+	$(INSTALL_DIR) $(1)/usr/include/
+	$(CP) $(PKG_INSTALL_DIR)/usr/include/sasl $(1)/usr/include/
+	$(INSTALL_DIR) $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libsasl2.so* $(1)/usr/lib/
 #	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libsasl2.{a,so*} $(1)/usr/lib/
 #	ln -sf libsasl2.a $(1)/usr/lib/libsasl.a
-#	ln -sf libsasl2.so $(1)/usr/lib/libsasl.so
-#	$(INSTALL_DIR) $(1)/usr/lib/sasl2
+	ln -sf libsasl2.so $(1)/usr/lib/libsasl.so
+	$(INSTALL_DIR) $(1)/usr/lib/sasl2
 #	$(CP) $(PKG_INSTALL_DIR)/usr/lib/sasl2/lib*.{a,so*} $(1)/usr/lib/sasl2/
-#endef
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/sasl2/lib*.so* $(1)/usr/lib/sasl2/
+endef
 
 define Package/libsasl2-krb5/install
 	$(INSTALL_DIR) $(1)/usr/lib/

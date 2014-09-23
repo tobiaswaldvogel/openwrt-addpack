@@ -2,14 +2,11 @@
 # Copyright (C) 2010 OpenWrt.org
 
 START=99
-BIN=/usr/bin/shellinaboxd
-PID=/var/run/shellinabox.pid
-SSD=start-stop-daemon
+USE_PROCD=1
 
-start() {
-        $SSD -p $PID -S -x $BIN --  --background=$PID --service=/webterm:SSH --localhost-only -g 0 -u 0 
-}
-	
-stop() {
-        $SSD -p $PID -K -s SIGINT
+start_service() {
+	procd_open_instance
+	procd_set_param command /usr/bin/shellinaboxd --service=/webterm:SSH --localhost-only -g 0 -u 0 
+	procd_set_param respawn
+	procd_close_instance 
 }

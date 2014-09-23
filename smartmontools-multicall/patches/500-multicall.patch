@@ -1,0 +1,81 @@
+--- a/smartmontools.cpp
++++ b/smartmontools.cpp
+@@ -0,0 +1,78 @@
++#include <stdio.h>
++#include <string.h>
++#include <syslog.h>
++#include <stdarg.h>
++
++extern int smartd_main(int argc, char **argv);
++extern int smartctl_main(int argc, char **argv);
++
++int pout_variant;
++
++static struct {
++	const char *name;
++	int (*func)(int argc, char **argv);
++} multicall[] = {
++	{ "smartd", smartd_main },
++	{ "smartctl", smartctl_main },
++};
++
++#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
++
++int main(int argc, char **argv)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		if (strstr(argv[0], multicall[i].name)) {
++			pout_variant = i;
++			return multicall[i].func(argc, argv);
++		}
++	}
++
++	fprintf(stderr, "Invalid multicall command, available commands:");
++	for (i = 0; i < ARRAY_SIZE(multicall); i++)
++		fprintf(stderr, " %s", multicall[i].name);
++
++	fprintf(stderr, "\n");
++
++	return 1;
++}
++
++extern bool printing_is_off;
++extern void FixGlibcTimeZoneBug();
++extern unsigned char debugmode;
++extern unsigned char ata_debugmode;
++extern unsigned char scsi_debugmode;
++extern int facility;
++void vsyslog_lines(int priority, const char * fmt, va_list ap);
++
++void pout(const char *fmt, ...){
++  va_list ap;
++  va_start(ap,fmt);
++
++  if (pout_variant == 0) {
++    // get the correct time in syslog()
++    FixGlibcTimeZoneBug();
++    // in debugmode==1 mode we will print the output from the ataprint.o functions!
++    if (debugmode && debugmode != 2) {
++      vprintf(fmt, ap);
++      fflush(stdout);
++    }
++    // in debugmode==2 mode we print output from knowndrives.o functions
++    else if (debugmode==2 || ata_debugmode || scsi_debugmode) {
++      openlog("smartd", LOG_PID, facility);
++      vsyslog_lines(LOG_INFO, fmt, ap);
++      closelog();
++    }
++  } else if (pout_variant == 1) {
++    if (printing_is_off) {
++      va_end(ap);
++      return;
++    }
++    vprintf(fmt,ap);
++    fflush(stdout);
++  }
++
++  va_end(ap);
++  return;
++}

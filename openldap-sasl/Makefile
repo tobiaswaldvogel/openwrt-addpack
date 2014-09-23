@@ -19,7 +19,6 @@ PKG_SOURCE_URL:=ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/ \
 PKG_MD5SUM:=
 
 PKG_FIXUP:=autoreconf
-PKG_BUILD_DEPENDS:=cyrus-sasl
 
 BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_BUILD_DIR:=$(BUILD_DIR)/openldap-$(PKG_VERSION)
@@ -36,7 +35,7 @@ define Package/libopenldap-sasl
   $(call Package/openldap-sasl/Default)
   SECTION:=libs
   CATEGORY:=Libraries
-  DEPENDS:=+libopenssl +libsasl2 +libpthread
+  DEPENDS:=+libsasl2-krb5 +libpthread
   TITLE+= (libraries)
 endef
 
@@ -71,22 +70,18 @@ TARGET_CFLAGS += $(FPIC) -lpthread
 
 CONFIGURE_ARGS += \
 	--enable-shared \
-	--enable-static \
+	--disable-static \
 	--disable-debug \
 	--enable-dynamic \
 	--enable-syslog \
 	--enable-local \
 	--disable-slurpd \
-	--with-cyrus-sasl \
 	--enable-spasswd \
 	--without-fetch \
-	--with-threads \
 	--with-tls \
+	--without-threads \
 	--with-yielding_select="yes" \
 	--with-cyrus-sasl \
-	--with-threads \
-	--with-tls \
-	--enable-null \
 	--disable-bdb \
 	--disable-hdb \
 	--disable-monitor \
@@ -104,7 +99,7 @@ define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include
 	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/include/{lber,ldap}*.h $(1)/usr/include/
 	$(INSTALL_DIR) $(1)/usr/lib/
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{lber,ldap}*.{a,so*} $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{lber,ldap}*.so* $(1)/usr/lib/
 endef
 
 define Package/libopenldap-sasl/install

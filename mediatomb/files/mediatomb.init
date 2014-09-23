@@ -2,11 +2,11 @@
 # Copyright (C) 2007 OpenWrt.org
 
 START=96
+USE_PROCD=1
 
-start() {
-	/usr/bin/mediatomb -c /etc/mediatomb/config.xml -d -l /var/log/mediatomb.log
-}
-
-stop() {
-	killall mediatomb 
+start_service() {
+	procd_open_instance
+	procd_set_param command /usr/bin/mediatomb -c /etc/mediatomb/config.xml -l /var/log/mediatomb.log
+	procd_set_param respawn
+	procd_close_instance 
 }

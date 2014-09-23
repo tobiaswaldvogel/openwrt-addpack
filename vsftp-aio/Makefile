@@ -56,6 +56,9 @@ define Package/vsftpd-aio/install
 	$(INSTALL_CONF) ./files/vsftpd.conf $(1)/etc/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/vsftpd.init $(1)/etc/init.d/vsftpd
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_DIR) $(1)/etc/pam.d
+	$(LN) other $(1)/etc/pam.d/ftp
 endef
 
 $(eval $(call BuildPackage,vsftpd-aio))

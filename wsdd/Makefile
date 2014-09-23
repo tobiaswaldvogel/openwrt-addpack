@@ -30,13 +30,15 @@ endef
 
 define Build/Compile
 	$(TARGET_CC) \
-		-I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) -Wall \
+		-I$(STAGING_DIR)/usr/include $(TARGET_CFLAGS) -Wall -Werror \
 		-L$(STAGING_DIR)/usr/lib \
 		-l:libuuid.so.1 \
 		-o $(PKG_BUILD_DIR)/$(PKG_NAME) $(PKG_BUILD_DIR)/$(PKG_NAME).c
 endef
 
 define Package/wsdd/install
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(PKG_NAME) $(1)/usr/sbin/
 endef

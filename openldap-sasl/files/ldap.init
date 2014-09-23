@@ -2,14 +2,12 @@
 # Copyright (C) 2009-2011 OpenWrt.org
 
 START=51
+USE_PROCD=1
 
-PIDFILE=/var/run/slapd.pid
 CONFFILE=/var/etc/slapd.conf
 CLNTCONF=/var/etc/ldap.conf
 DATADIR=/etc/openldap/data
-SUFFIX=.ldif
 NSSWITCH=/var/etc/nsswitch.conf
-BIN=/usr/sbin/slapd
 
 add_line() {
 	echo >>$CONFFILE -e $1
@@ -24,10 +22,12 @@ start_server() {
 		mkdir -p /var/etc
 		mkdir -p /var/run
 
-		KLIST=`klist -k /etc/krb5.keytab`
-		PRINC=${KLIST##*ldap/}
-		SASLREALM=${PRINC##*@}
-		SASLHOST=${PRINC%%@*}
+		[ -f /etc/krb5.keytab ] && {
+			KLIST=`klist -k /etc/krb5.keytab`
+			PRINC=${KLIST##*ldap/}
+			SASLREALM=${PRINC##*@}
+			SASLHOST=${PRINC%%@*}
+		}
 
 		[ -z $SASLREALM ] || {
 			SASLREALM="sasl-realm\t$SASLREALM"
@@ -44,30 +44,32 @@ start_server() {
 
 		[ -d $DATADIR ] || mkdir -p $DATADIR
 
-		$BIN -h "ldapi:/// ldap://" -f $CONFFILE -s 0
-
-		[ -e /var/run/ldapi ] && {
-			echo -e "URI\tldapi:///" >$CLNTCONF
-			chmod 644 $CLNTCONF
-			sed -i -e "s/passwd:files$/passwd:files ldap/g" -e "s/group:files$/group:files ldap/g" $NSSWITCH
-		}
+		procd_open_instance
+		procd_set_param command /usr/sbin/slapd -d 0 -s 0 -h "ldapi:/// ldap://" -f $CONFFILE 
+		procd_set_param respawn
+		procd_close_instance
 	}
-
-	for file in /lib/upgrade/openldap/*; do [ -f $file ] && {
-		lua $file
-		rm $file
-	}
-	done
 }
 
-start() {
+reload_service() {
+	restart_service
+}
+
+service_triggers() {
+	procd_add_reload_trigger "ldap"
+}
+
+start_service() {
 	config_load ldap
 	config_foreach  start_server server
+
+	[ -e /var/run/ldapi ] && {
+		echo -e "URI\tldapi:///" >$CLNTCONF
+		chmod 644 $CLNTCONF
+		sed -i -e "s/passwd:files$/passwd:files ldap/g" -e "s/group:files$/group:files ldap/g" $NSSWITCH
+	}
 }
 
-stop() {
-	[ -f $PIDFILE ] && {
-		sed -i -e "s/passwd:files ldap$/passwd:files/g" -e "s/group:files ldap$/group:files/g" $NSSWITCH
-		kill $(cat $PIDFILE)
-	}
+stop_service() {
+	sed -i -e "s/passwd:files ldap$/passwd:files/g" -e "s/group:files ldap$/group:files/g" $NSSWITCH
 }

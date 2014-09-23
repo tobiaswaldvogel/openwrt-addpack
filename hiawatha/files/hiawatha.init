@@ -3,17 +3,14 @@
 
 START=90
 STOP=10
+USE_PROCD=1
 
-NAME=hiawatha
-PROG=/usr/sbin/$NAME
-PID=/var/run/$NAME.pid
-SSD=start-stop-daemon
-
-start() {
+start_service() {
 	mkdir -p /var/log/hiawatha
-        $SSD -p $PID -S -x $PROG 
-}
-	
-stop() {
-	$SSD -p $PID -K -s SIGTERM
+
+	procd_open_instance
+	procd_set_param command /usr/sbin/hiawatha
+	procd_append_param command -d
+	procd_set_param respawn
+	procd_close_instance
 }

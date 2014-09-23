@@ -1,0 +1,81 @@
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -40,7 +40,8 @@
+ 
+ sbin_PROGRAMS = \
+         smartctl \
+-        smartd
++        smartd \
++	smartmontools
+ 
+ if ENABLE_DRIVEDB
+ if OS_WIN32_MINGW
+@@ -169,6 +170,44 @@
+         dev_legacy.cpp \
+         megaraid.h
+ 
++smartd_multi.o:
++	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -Dmain=smartd_main -Dpout=smartd_pout -Dchecksumwarning=smartd_checksumwarning -Dfailuretest_permissive=smartd_failuretest_permissive -c smartd.cpp -o $@ $<
++	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
++smartctl_multi.o:
++	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -Dmain=smartctl_main -c -Dpout=smartctl_pout smartctl.cpp -o $@ $<
++	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
++
++smartmontools_LDADD = smartd_multi.o smartctl_multi.o @os_deps@ @os_libs@ @CAPNG_LDADD@
++smartmontools_DEPENDENCIES = smartd_multi.o smartctl_multi.o @os_deps@
++
++smartmontools_SOURCES = \
++        smartmontools.cpp \
++        smartctl.h \
++        atacmdnames.cpp \
++        atacmdnames.h \
++        atacmds.cpp \
++        atacmds.h \
++        ataidentify.cpp \
++        ataidentify.h \
++        ataprint.cpp \
++        ataprint.h \
++        dev_ata_cmd_set.cpp \
++        dev_ata_cmd_set.h \
++        dev_interface.cpp \
++        dev_interface.h \
++        dev_tunnelled.h \
++        drivedb.h \
++        int64.h \
++        knowndrives.cpp \
++        knowndrives.h \
++        scsicmds.cpp \
++        scsicmds.h \
++        scsiata.cpp \
++        scsiprint.cpp \
++        scsiprint.h \
++        utility.cpp \
++        utility.h
++
+ if OS_WIN32_MINGW
+ 
+ smartd_SOURCES += \
+@@ -195,6 +234,11 @@
+         getopt/getopt.h \
+         getopt/getopt1.c
+ 
++smartmontools_SOURCES += \
++        getopt/getopt.c \
++        getopt/getopt.h \
++        getopt/getopt1.c
++
+ endif
+ 
+ if NEED_REGEX
+@@ -208,6 +252,11 @@
+         regex/regex.c \
+         regex/regex.h \
+         regex/regex_internal.h
++
++smartmontools_SOURCES += \
++        regex/regex.c \
++        regex/regex.h \
++        regex/regex_internal.h
+ 
+ # Included by regex.c:
+ EXTRA_smartctl_SOURCES += \

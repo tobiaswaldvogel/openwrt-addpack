@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=krb5-mit
+PKG_NAME:=krb5-mit-ldap
 PKG_VERSION_MAJOR=1.12.1
 PKG_VERSION_MINOR=
 PKG_VERSION:=$(PKG_VERSION_MAJOR)$(PKG_VERSION_MINOR)
@@ -10,7 +10,6 @@ PKG_SOURCE:=krb5-$(PKG_VERSION)-signed.tar
 PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/$(PKG_VERSION_MAJOR)/
 PKG_MD5SUM:=
 
-PKG_BUILD_DEPENDS:=+libopenldap-sasl
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)/krb5-$(PKG_VERSION)
 PKG_INSTALL:=1
@@ -18,7 +17,6 @@ PKG_INSTALL:=1
 include $(INCLUDE_DIR)/package.mk
 
 MAKE_PATH:=src
-EXTRA_LDFLAGS += -llber -Wl,-rpath-link=$(STAGING_DIR)/usr/lib
 
 define Package/krb5-mit/Default
 	SECTION:=net
@@ -31,7 +29,7 @@ endef
 
 define Package/krb5-mit-libs
 	$(call Package/krb5-mit/Default)
-	DEPENDS:=+libncurses +libopenldap-sasl +libkeyutils +libreadline
+	DEPENDS:=+libncurses +libkeyutils +libreadline
 	TITLE+= (Shared Libraries)
 endef
 
@@ -43,7 +41,7 @@ endef
 
 define Package/krb5-mit-ldap
 	$(call Package/krb5-mit/Default)
-	DEPENDS:=+krb5-mit-libs +libpthread
+	DEPENDS:=+krb5-mit-libs +libpthread +libopenldap-sasl
 	TITLE+= (LDAP support)
 endef
 
@@ -53,19 +51,15 @@ define Package/krb5-mit-client
 	TITLE+= (Client)
 endef
 
-define Package/krb5-mit/description
-	MIT Kerberos
-endef
-
+# Krb5 tarball contains signature and a second tarball
+# containing source code.
 define Build/Prepare
-	# Krb5 tarball contains signature and a second tarball
-	# containing source code.
 	tar -xOf "$(DL_DIR)/$(PKG_SOURCE)" krb5-$(PKG_VERSION).tar.gz | \
 		tar -xz -C "$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)"
 	$(call Build/Patch/Default)
 endef
 
-CONFIGURE_PATH = ./src
+CONFIGURE_PATH = src
 
 CONFIGURE_VARS += \
 	cross_compiling=yes \
@@ -78,43 +72,59 @@ CONFIGURE_VARS += \
 
 CONFIGURE_ARGS += \
 	--enable-thread-support \
+	--enable-dns-for-realm \
+	--disable-pkinit \
 	--without-tcl \
 	--without-libedit \
-	--with-readline \
 	--with-ldap \
+	--with-readline \
 	--with-size-optimizations \
-	--enable-dns-for-realm \
 	--with-system-verto=no \
 	--localstatedir=/etc
 
-define Build/InstallDev
-	$(INSTALL_DIR) $(1)/usr/include
-	$(CP) $(PKG_INSTALL_DIR)/usr/include \
-		$(1)/usr/include/krb5
-	$(INSTALL_DIR) $(1)/usr
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib \
-		$(1)/usr
-	rm $(1)/usr/lib/libcom_err.so
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(CP) $(PKG_INSTALL_DIR)/usr/bin/krb5-config \
-		$(1)/usr/bin
-	$(SED) 's,^includedir=$$$${prefix}/include,includedir=$(STAGING_DIR)/usr/include/krb5,g' $(1)/usr/bin/krb5-config
-	$(SED) 's,^libdir=$$$${exec_prefix}/lib,libdir=$(STAGING_DIR)/usr/lib,g' $(1)/usr/bin/krb5-config
-	$(SED) 's,-lcom_err,-l:libcom_err.so.3,g' $(1)/usr/bin/krb5-config
-endef
+#EXTRA_LDFLAGS += -llber -Wl,-rpath-link=$(STAGING_DIR)/usr/lib
 
 define Package/krb5-mit-libs/install
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/krb5conf $(1)/etc/init.d/krb5conf
+	$(INSTALL_BIN) files/krb5conf.init $(1)/etc/init.d/krb5conf
 	ln -sf /var/etc/krb5.conf $(1)/etc/krb5.conf
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(INSTALL_DIR) $(1)/usr/lib/krb5
-	$(INSTALL_DIR) $(1)/usr/lib/krb5/plugins
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcom_err.so.* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libgss{api_krb5,rpc}.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libk5crypto.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkadm5{clnt*,srv*}.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkrad.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkrb5.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkrb5support.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libverto.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkdb5.so* $(1)/usr/lib/
 	$(INSTALL_DIR) $(1)/usr/lib/krb5/plugins/kdb
-	$(INSTALL_DIR) $(1)/usr/lib/krb5/plugins/libkrb5
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/krb5/plugins/kdb/db2.so $(1)/usr/lib/krb5/plugins/kdb
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/*.so* $(1)/usr/lib
-	rm $(1)/usr/lib/libcom_err.so
+endef
+
+define Package/krb5-mit-ldap/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kdb5_ldap_util $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkdb_ldap.so* $(1)/usr/lib/
+	$(INSTALL_DIR) $(1)/usr/lib/krb5/plugins/kdb
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/krb5/plugins/kdb/kldap.so $(1)/usr/lib/krb5/plugins/kdb/
+	$(INSTALL_DIR) $(1)/etc/openldap/schema
+	$(CP) $(PKG_BUILD_DIR)/src/plugins/kdb/ldap/libkdb_ldap/kerberos.schema $(1)/etc/openldap/schema
+endef
+
+define Package/krb5-mit-server/install
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) files/krb5kdc.init $(1)/etc/init.d/krb5kdc
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kadmin.local $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kadmind $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kdb5_util $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/krb5kdc $(1)/usr/sbin
+endef
+
+define Package/krb5-mit-server/conffiles
+/etc/krb5.keytab
 endef
 
 define Package/krb5-mit-client/install
@@ -130,34 +140,7 @@ define Package/krb5-mit-client/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/krb5-send-pr $(1)/usr/sbin
 endef
 
-# Removed some server-side software to reduce package size. This should be
-# put in a separate package if needed.
-define Package/krb5-mit-server/install
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/krb5kdc $(1)/etc/init.d/krb5kdc
-#	$(INSTALL_DIR) $(1)/usr/bin
-#	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/sclient $(1)/usr/bin
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kadmin.local $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kadmind $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kdb5_util $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/krb5kdc $(1)/usr/sbin
-endef
-
-define Package/krb5-server/conffiles
-/etc/krb5.keytab
-endef
-
-define Package/krb5-mit-ldap/install
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/kdb5_ldap_util $(1)/usr/sbin
-	$(INSTALL_DIR) $(1)/usr/lib/krb5/plugins/kdb
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/krb5/plugins/kdb/kldap.so $(1)/usr/lib/krb5/plugins/kdb
-	$(INSTALL_DIR) $(1)/etc/openldap/schema
-	$(CP) $(PKG_BUILD_DIR)/src/plugins/kdb/ldap/libkdb_ldap/kerberos.schema $(1)/etc/openldap/schema
-endef
-
-$(eval $(call BuildPackage,krb5-mit-libs))
-$(eval $(call BuildPackage,krb5-mit-server))
-$(eval $(call BuildPackage,krb5-mit-client))
 $(eval $(call BuildPackage,krb5-mit-ldap))
+$(eval $(call BuildPackage,krb5-mit-client))
+$(eval $(call BuildPackage,krb5-mit-server))
+$(eval $(call BuildPackage,krb5-mit-libs))

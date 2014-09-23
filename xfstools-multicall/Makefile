@@ -53,19 +53,19 @@ MAKE_FLAGS += \
 
 define Build/Configure
 	cp $(PKG_BUILD_DIR)/include/install-sh   $(PKG_BUILD_DIR)
-	ln -sf $(STAGING_DIR)/host/share/libtool/config/config.guess $(PKG_BUILD_DIR)/config.guess
-	ln -sf $(STAGING_DIR)/host/share/libtool/config/config.sub   $(PKG_BUILD_DIR)/config.sub
+	$(LN) $(STAGING_DIR)/host/share/libtool/config/config.guess $(PKG_BUILD_DIR)/config.guess
+	$(LN) $(STAGING_DIR)/host/share/libtool/config/config.sub   $(PKG_BUILD_DIR)/config.sub
 	$(call Build/Configure/Default)
 endef
 
 define Package/xfs-tools/install
 	mkdir -p $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/sbin/xfs_tools $(1)/usr/sbin
-	ln -sf xfs_tools $(1)/usr/sbin/xfs_repair
-	ln -sf xfs_tools $(1)/usr/sbin/fsck.xfs
-	ln -sf xfs_tools $(1)/usr/sbin/xfs_db
-	ln -sf xfs_tools $(1)/usr/sbin/xfs_growfs
-	ln -sf xfs_tools $(1)/usr/sbin/mkfs.xfs
+	$(LN) xfs_tools $(1)/usr/sbin/xfs_repair
+	$(LN) xfs_tools $(1)/usr/sbin/fsck.xfs
+	$(LN) xfs_tools $(1)/usr/sbin/xfs_db
+	$(LN) xfs_tools $(1)/usr/sbin/xfs_growfs
+	$(LN) xfs_tools $(1)/usr/sbin/mkfs.xfs
 endef
 
 $(eval $(call BuildPackage,xfs-tools))

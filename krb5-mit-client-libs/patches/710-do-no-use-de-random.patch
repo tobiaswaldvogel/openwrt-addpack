@@ -1,0 +1,13 @@
+--- a/src/lib/crypto/krb/prng.c	2012-08-18 15:43:49.626814398 +0200
++++ b/src/lib/crypto/krb/prng.c	2012-08-18 15:44:48.947024279 +0200
+@@ -138,10 +138,6 @@
+        guaranteed to cause a reseed of some kind if strong is true and
+        we have both /dev/random and /dev/urandom.  We want the strong
+        data included in the reseed so we get it first.*/
+-    if (strong) {
+-        if (add_entropy_from_device(context, "/dev/random"))
+-            *oursuccess = 1;
+-    }
+     if (add_entropy_from_device(context, "/dev/urandom"))
+         *oursuccess = 1;
+     return 0;

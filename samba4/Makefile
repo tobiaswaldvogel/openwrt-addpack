@@ -7,15 +7,15 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=samba
+PKG_NAME:=samba4
 PKG_VERSION:=4.0.21
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
 	http://ftp.samba.org/pub/samba/old-versions
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=samba-$(PKG_VERSION).tar.gz
+PKG_BUILD_DIR:=$(BUILD_DIR)/samba-$(PKG_VERSION)
 PKG_MD5SUM:=
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 
 PKG_LICENSE:=GPLv3
 PKG_LICENSE_FILES:=COPYING
@@ -35,7 +35,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +libiconv +libacl +libreadline +libaio
+  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +krb5-mit-client +libiconv +libacl +libreadline +libaio +libtirpc +wsdd
 endef
 
 define Package/samba4-client
@@ -48,7 +48,7 @@ endef
 
 define Package/samba4-server/config
 config PACKAGE_SAMBA4_MAX_DEBUG_LEVEL
-	int "  Maximum level of compiled-in debug messages"
+	int "Maximum level of compiled-in debug messages"
 	depends on PACKAGE_samba4-server || PACKAGE_samba4-client
 	default -1
 endef
@@ -58,6 +58,14 @@ define Package/samba4-server/description
  SMB protocol for UNIX systems, allowing you to serve files and printers to
  Windows, NT, OS/2 and DOS clients. This protocol is sometimes also referred
  to as the LanManager or Netbios protocol.
+endef
+
+define Package/luci-app-$(PKG_NAME)
+  SECTION:=luci
+  CATEGORY:=LuCI
+  SUBMENU:=3. Applications
+  DEPENDS:=+samba4-server
+  TITLE:=Samba 4
 endef
 
 TARGET_CFLAGS += \
@@ -73,7 +81,7 @@ TARGET_CFLAGS += \
 	-DLSA_SUPPORT
 
 TARGET_LDFLAGS += \
-	-Wl,--gc-sections -laio -lkrb5 -l:libcom_err.so.3 -ldl -lgssapi_krb5 \
+	-Wl,--gc-sections -laio -lkrb5 -l:libcom_err.so.3 -ldl -lgssapi_krb5 -ltirpc \
 	-Wl,-rpath-link=$(STAGING_DIR)/usr/lib -lkrb5 \
 	-L$(STAGING_DIR)/usr/lib/libiconv/lib \
 
@@ -165,27 +173,27 @@ MAKE_FLAGS += DYNEXP= PICFLAG= MODULES=
 
 define Package/samba4-server/install
 	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_DATA) ./files/samba.config $(1)/etc/config/samba
+	$(INSTALL_DATA) ./files/$(PKG_NAME).config $(1)/etc/config/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/etc/samba
 	$(INSTALL_DATA) ./files/smb.conf.template $(1)/etc/samba
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/codepages/lowcase.dat $(1)/etc/samba
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/codepages/upcase.dat $(1)/etc/samba
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/codepages/valid.dat $(1)/etc/samba
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/samba.init $(1)/etc/init.d/samba
+	$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_BUILD_BIN)/samba_multicall $(1)/usr/sbin
-	ln -sf samba_multicall $(1)/usr/sbin/smbd
-	ln -sf samba_multicall $(1)/usr/sbin/nmbd
-	ln -sf samba_multicall $(1)/usr/sbin/smbpasswd
+	$(INSTALL_BIN) $(PKG_BUILD_BIN)/$(PKG_NAME)_multicall $(1)/usr/sbin
+	ln -sf $(PKG_NAME)_multicall $(1)/usr/sbin/smbd
+	ln -sf $(PKG_NAME)_multicall $(1)/usr/sbin/nmbd
+	ln -sf $(PKG_NAME)_multicall $(1)/usr/sbin/smbpasswd
 	$(INSTALL_DIR) $(1)/usr/bin
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/smbcontrol
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/smbtree
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/smbstatus
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/smbcquotas
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/smbcacls
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/nmblookup
-	ln -sf ../sbin/samba_multicall $(1)/usr/bin/testparm
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbcontrol
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbtree
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbstatus
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbcquotas
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbcacls
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/nmblookup
+	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/testparm
 	$(INSTALL_DIR) $(1)/etc/openldap/schema
 	$(CP) $(PKG_BUILD_DIR)/examples/LDAP/samba.schema $(1)/etc/openldap/schema
 	$(INSTALL_DIR) $(1)/etc/samba
@@ -203,6 +211,18 @@ define Package/samba4-client/install
 	$(INSTALL_BIN) $(PKG_BUILD_BIN)/nmblookup $(1)/usr/sbin
 endef
 
-$(eval $(call BuildPackage,samba4-client))
-$(eval $(call BuildPackage,samba4-server))
+define Package/luci-app-$(PKG_NAME)/install
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
+	$(INSTALL_DATA) files/$(PKG_NAME).controller.lua $(1)/usr/lib/lua/luci/controller/$(PKG_NAME).lua
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi
+	$(INSTALL_DATA) files/$(PKG_NAME).cbi.lua $(1)/usr/lib/lua/luci/model/cbi/$(PKG_NAME).lua
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
+	for transl in files/*.po; do \
+		transl_dest=`basename $$$$transl .po`.lmo; \
+		$(BUILD_DIR)/luci/build/po2lmo $$$$transl $(1)/usr/lib/lua/luci/i18n/$$$$transl_dest; \
+	done
+endef
 
+$(eval $(call BuildPackage,$(PKG_NAME)-client))
+$(eval $(call BuildPackage,$(PKG_NAME)-server))
+$(eval $(call BuildPackage,luci-app-$(PKG_NAME)))

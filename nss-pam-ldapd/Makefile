@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=nss-pam-ldapd
-PKG_VERSION:=0.8.12
+PKG_VERSION:=0.9.4
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
@@ -28,7 +28,7 @@ define Package/nss-pam-ldapd
   DEPENDS:=+libopenldap-sasl +krb5-mit-libs +libpam
 endef
 
-define Package/libnss_ldap
+define Package/nss-ldap
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=NSS module for LDAP
@@ -36,13 +36,15 @@ define Package/libnss_ldap
   DEPENDS:=+nss-pam-ldapd
 endef
 
-define Package/libpam_ldap
+define Package/pam-ldap
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=PAM modules for LDAD
   URL:=//http://arthurdejong.org/nss-pam-ldapd/
   DEPENDS:=+nss-pam-ldapd
 endef
+
+CONFIGURE_ARGS += --with-nss-maps=passwd,group
 
 define Package/nss-pam-ldapd/install
 	$(INSTALL_DIR) $(1)/usr/sbin
@@ -57,16 +59,16 @@ define Package/nss-pam-ldapd/install
 	echo -e >>$(1)/etc/nslcd.conf "\nthreads 1"
 endef
 
-define Package/libnss_ldap/install
+define Package/nss-ldap/install
 	$(INSTALL_DIR) $(1)/lib
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libnss_ldap.so.2 $(1)/lib
 endef
 
-define Package/libpam_ldap/install
+define Package/pam-ldap/install
 	$(INSTALL_DIR) $(1)/lib/security
 	$(CP) $(PKG_INSTALL_DIR)/lib/security/pam_ldap.so $(1)/lib/security
 endef
 
 $(eval $(call BuildPackage,nss-pam-ldapd))
-$(eval $(call BuildPackage,libnss_ldap))
-$(eval $(call BuildPackage,libpam_ldap))
+$(eval $(call BuildPackage,nss-ldap))
+$(eval $(call BuildPackage,pam-ldap))

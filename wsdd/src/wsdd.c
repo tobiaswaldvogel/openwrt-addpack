@@ -85,7 +85,8 @@ static const char wsd_types[]  = ":Types>";
 
 /* global/static variables */
 int	loglevel = LOG_ERR;
-int 	asdaemon = 1;
+int	asdaemon = 1;
+int	usesyslog = 1;
 int	terminate = 0;
 char	endpoint[48];
 char 	sequence[48];
@@ -139,16 +140,13 @@ void daemonize(void)
 	/* change to root directory and close file descriptors */
 	chdir("/");
 	maxfd = getdtablesize();
-	for (i = 0; i < maxfd; i++) {
+	for (i = 0; i < maxfd; i++)
 		close(i);
-	}
 
 	/* use /dev/null for stdin, stdout and stderr */
 	open("/dev/null", O_RDONLY);
 	open("/dev/null", O_WRONLY);
 	open("/dev/null", O_WRONLY);
-
-	openlog("wsdd", LOG_PID, LOG_DAEMON);
 }
 
 void wsdd_log(int priority, const char* format, ...) {
@@ -161,7 +159,7 @@ void wsdd_log(int priority, const char* format, ...) {
 	va_start(va, format);
 	vsnprintf(printbuf, sizeof(printbuf), format, va);
 
-	if (asdaemon)
+	if (usesyslog)
 		syslog(priority, "%s", printbuf);
 	else
 		fprintf(stderr, "%s\n", printbuf);
@@ -175,9 +173,9 @@ char* get_tag_value(char *xml, const char *tag, int taglen, int *len)
 	val = strstr(xml, tag);
 	if (!val)
 		return NULL;
-		
+
 	val += taglen;
-	
+
 	end = strstr(val, "<");
 	if (!end)
 		return NULL;
@@ -499,7 +497,7 @@ int udp_receive(int conn, struct sockaddr *from, int *from_len, struct in_addr *
 	struct	msghdr 	msg;
 	struct	cmsghdr* cmsg;
 	int	in_len;
-	
+
 	iovec[0].iov_base = in;
 	iovec[0].iov_len = sizeof(in);
 	msg.msg_name = from;
@@ -532,7 +530,7 @@ int udp_send(int conn, const struct in_addr from, const struct sockaddr *to, int
 	struct	msghdr 	msg;
 	struct	cmsghdr* cmsg;
 	struct 	in_pktinfo *pktinfo;
-	
+
 	iovec[0].iov_base = out;
 	iovec[0].iov_len = out_len;
 	msg.msg_name = (struct sockaddr*)to;
@@ -582,7 +580,7 @@ void llmnr_udp_request(int conn)
 	int	in_len, out_len, from_len, name_len;
 
 	from_len = sizeof(from);
-	in_len = udp_receive(conn, &from, &from_len, &to);	
+	in_len = udp_receive(conn, &from, &from_len, &to);
 
 	if (in_len < 13)
 		return;
@@ -644,12 +642,21 @@ int main(int argc, char *argv[])
 	gethostname(cd_name, sizeof(cd_name));
 	
 	/* process command line options */
-	while ((opt = getopt(argc, argv, "dhn:w:i:")) != -1) {
+	while ((opt = getopt(argc, argv, "dhFIn:w:i:")) != -1) {
 		switch (opt) {
 
 		case 'd':
 			loglevel = LOG_DEBUG;
 			asdaemon = 0;
+			usesyslog = 0;
+			break;
+
+		case 'F':
+			asdaemon = 0;
+			break;
+
+		case 'I':
+			usesyslog = 0;
 			break;
 
 		case 'i':
@@ -665,7 +672,8 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'h':
-			printf("usage: wsdd [-d] [-h] [-n hostname] [-w workgroup] [-i ip]\n");
+			printf("usage: wsdd [-d (debug)] [-I (interactive) [-F (foreground)]\n"
+			       "            [-h] [-n hostname] [-w workgroup] [-i ip]\n");
 			return(0);
 		}
 	}
@@ -684,10 +692,12 @@ int main(int argc, char *argv[])
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	
-	/* daemonize unless we're running in debug mode */
 	if (asdaemon)
 		daemonize();
-	
+
+	if (usesyslog)
+		openlog("wsdd", LOG_PID, LOG_DAEMON);
+
 	/* Generate UUIDs */
 	instance_id = time(NULL);
 	uuid_generate_time(uuid);
