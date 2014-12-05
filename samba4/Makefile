@@ -12,7 +12,7 @@ PKG_VERSION:=4.0.25
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
-	http://ftp.samba.org/pub/samba/old-versions
+	http://ftp.samba.org/pub/samba/stable
 PKG_SOURCE:=samba-$(PKG_VERSION).tar.gz
 PKG_BUILD_DIR:=$(BUILD_DIR)/samba-$(PKG_VERSION)
 PKG_MD5SUM:=
@@ -26,6 +26,7 @@ PO2LMO:=$(STAGING_DIR_HOST)/bin/po2lmo
 PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/nls.mk
 
 MAKE_PATH:=source3
 CONFIGURE_PATH:=source3
@@ -38,7 +39,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +krb5-mit-client +libiconv +libacl +libreadline +libaio +libtirpc +wsdd
+  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +krb5-mit-client $(ICONV_DEPENDS) +libacl +libreadline +libaio +libtirpc +wsdd
 endef
 
 define Package/samba4-client
@@ -161,7 +162,6 @@ CONFIGURE_ARGS += \
 	--with-ads \
 	--with-krb5=$(STAGING_DIR)/usr \
 	--with-ldap \
-	--with-libiconv=$(STAGING_DIR)/usr/lib/libiconv \
 	--with-acl-support \
 	--with-quotas \
 	--with-syslog \
