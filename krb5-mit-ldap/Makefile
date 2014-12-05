@@ -1,10 +1,10 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=krb5-mit-ldap
-PKG_VERSION_MAJOR=1.12.1
+PKG_VERSION_MAJOR=1.13
 PKG_VERSION_MINOR=
 PKG_VERSION:=$(PKG_VERSION_MAJOR)$(PKG_VERSION_MINOR)
-PKG_RELEASE:=2
+PKG_RELEASE:=1
 
 PKG_SOURCE:=krb5-$(PKG_VERSION)-signed.tar
 PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/$(PKG_VERSION_MAJOR)/
@@ -12,6 +12,7 @@ PKG_MD5SUM:=
 
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)/krb5-$(PKG_VERSION)
+PKG_BUILD_DEPENDS:=openldap-sasl
 PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
@@ -23,6 +24,7 @@ define Package/krb5-mit/Default
 	TITLE:=MIT Kerberos 5
 	URL:=http://web.mit.edu/kerberos/
 	MAINTAINER:=W. Michael Petullo <mike@flyn.org>
+	CONFLICTS:=heimdal
 endef
 
 define Package/krb5-mit-libs

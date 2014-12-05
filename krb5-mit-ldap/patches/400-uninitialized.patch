@@ -24,12 +24,32 @@
      kdc_realm_t *kdc_active_realm = state->active_realm;
 --- a/src/slave/kprop.c	2012-07-11 20:11:26.897878314 +0200
 +++ b/src/slave/kprop.c	2012-07-11 20:12:42.204298183 +0200
-@@ -92,7 +92,7 @@
-     int     argc;
-     char    **argv;
+@@ -90,7 +90,7 @@
+ int
+ main(int argc, char **argv)
  {
--    int     fd, database_fd, database_size;
-+    int     fd=0, database_fd, database_size;
+-    int fd, database_fd, database_size;
++    int fd=0, database_fd, database_size;
      krb5_error_code retval;
      krb5_context context;
      krb5_creds *my_creds;
+--- a/src/lib/krb5/os/sendto_kdc.c
++++ b/src/lib/krb5/os/sendto_kdc.c
+@@ -339,7 +339,7 @@
+     struct timeval tv;
+ #endif
+     krb5_error_code retval;
+-    time_ms curtime, interval;
++    time_ms curtime=0, interval;
+ 
+     retval = get_curtime_ms(&curtime);
+     if (retval != 0)
+@@ -1315,7 +1315,7 @@
+             void *msg_handler_data, struct conn_state **winner_out)
+ {
+     int e, selret = 0;
+-    time_ms endtime;
++    time_ms endtime=0;
+     struct conn_state *state;
+ 
+     *winner_out = NULL;
