@@ -1,14 +1,28 @@
---- a/source3/configure
-+++ b/source3/configure
-@@ -14396,10 +14396,7 @@
+--- a/lib/replace/libreplace_network.m4
++++ b/lib/replace/libreplace_network.m4
+@@ -227,7 +227,7 @@
+ ],
+ libreplace_cv_HAVE_GETADDRINFO=yes,libreplace_cv_HAVE_GETADDRINFO=no)])
+ 
+-if test x"$libreplace_cv_HAVE_GETADDRINFO" = x"yes"; then
++if test x"$libreplace_cv_HAVE_GETADDRINFO" = x"disable to cross compile"; then
+ 	# getaddrinfo is broken on some AIX systems
  	# see bug 5910, use our replacements if we detect
  	# a broken system.
- 	if test "$cross_compiling" = yes; then :
--  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
--$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
--as_fn_error $? "cannot run test program while cross compiling
--See \`config.log' for more details" "$LINENO" 5; }
-+		$as_echo "assuming valid getaddrinfo without bug 5910" >&2
- else
-   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
- /* end confdefs.h.  */
+--- a/source3/configure.in
++++ b/source3/configure.in
+@@ -3587,13 +3587,12 @@
+ 
+   ##################################################################
+   # we might need the k5crypto and com_err libraries on some systems
+-  AC_CHECK_LIB_EXT(com_err, KRB5_LIBS, _et_list)
++  AC_CHECK_LIB_EXT(libcom_err.so.3, KRB5_LIBS, _et_list)
+   AC_CHECK_LIB_EXT(k5crypto, KRB5_LIBS, krb5_encrypt_data)
+ 
+   # Heimdal checks.
+   AC_CHECK_LIB_EXT(crypto, KRB5_LIBS, des_set_key)
+   AC_CHECK_LIB_EXT(asn1, KRB5_LIBS, copy_Authenticator)
+-  AC_CHECK_LIB_EXT(roken, KRB5_LIBS, roken_getaddrinfo_hostspec)
+ 
+   # Heimdal checks. On static Heimdal gssapi must be linked before krb5.
+   AC_CHECK_LIB_EXT(gssapi, KRB5_LIBS, gss_display_status,[],[],have_gssapi=yes)
