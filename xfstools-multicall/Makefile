@@ -9,7 +9,8 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=xfsprogs-multicall
 PKG_RELEASE:=1
-PKG_VERSION:=3.1.10
+#PKG_VERSION:=3.1.10
+PKG_VERSION:=3.1.11
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=git://oss.sgi.com/xfs/cmds/xfsprogs
 PKG_SOURCE_SUBDIR:=xfsprogs-$(PKG_VERSION)

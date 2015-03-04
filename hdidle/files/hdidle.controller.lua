@@ -9,12 +9,12 @@ module("luci.controller.hdidle", package.seeall)
 function index()
 	if not nixio.fs.access("/etc/config/hdidle") then
                 local devices = {}
-                luci.util.update(devices, require("luci.fs").glob("/dev/sd?") or {})
+		nixio.util.consume((nixio.fs.glob("/dev/sd?")), devices)
 
                 nixio.fs.writefile("/etc/config/hdidle", "")
                 c = luci.model.uci.cursor()
                 for _, dev in ipairs(devices) do
-                        c:section("hdidle", "device", nil, { disk=luci.fs.basename(dev), enabled="1", idle_time_unit="minutes", idle_time_interval="30" })
+                        c:section("hdidle", "device", nil, { disk=nixio.fs.basename(dev), enabled="1", idle_time_unit="minutes", idle_time_interval="30" })
                         c:save("hdidle")
                 end
                 c:commit("hdidle")

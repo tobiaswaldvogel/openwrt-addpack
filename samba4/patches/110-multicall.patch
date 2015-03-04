@@ -39,7 +39,7 @@
  
  BIN_PROGS1 = bin/smbclient bin/net bin/smbspool \
  	bin/testparm bin/smbstatus bin/smbget \
-@@ -1847,6 +1847,99 @@
+@@ -1851,6 +1851,99 @@
  	  dir=bin $(MAKEDIR); fi
  	@: >> $@ || : > $@ # what a fancy emoticon!
  

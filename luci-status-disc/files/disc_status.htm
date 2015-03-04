@@ -85,8 +85,8 @@
 	local unused = size
 	local parts = {}
 
-	for i, part in ipairs(luci.fs.glob("/sys/block/" .. dev .."/" .. dev .. "*")) do
-		local pname = luci.fs.basename(part)
+	for part in nixio.fs.glob("/sys/block/" .. dev .."/" .. dev .. "*") do
+		local pname = nixio.fs.basename(part)
 		local psize = nixio.fs.readfile(part .. "/size")
 		table.insert(parts, {name=pname, size=psize, perc=math.floor(psize*100/size), fs=get_fs(pname,status), color=colors[c]})
 		c = c + 1
@@ -98,9 +98,9 @@
 	return parts
    end
 
-   for b,dev in ipairs(luci.fs.glob("/sys/block/*")) do
-	if luci.fs.isdirectory(dev .. "/md") then
-		local name = luci.fs.basename(dev)
+   for dev in nixio.fs.glob("/sys/block/*") do
+	if nixio.fs.access(dev .. "/md") then
+		local name = nixio.fs.basename(dev)
 		local rlevel = first_line(nixio.fs.readfile(dev .. "/md/level"))
 		local ndisks = tonumber(nixio.fs.readfile(dev .. "/md/raid_disks"))
 		local size = tonumber(nixio.fs.readfile(dev .. "/size"))
@@ -126,8 +126,8 @@
 		end
 
 		local members = {}
-		for i, member in ipairs(luci.fs.glob("/sys/block/" .. name .. "/md/dev-*")) do
-			local dname = luci.fs.basename(luci.fs.readlink(member .. "/block"))
+		for member in nixio.fs.glob("/sys/block/" .. name .. "/md/dev-*") do
+			local dname = nixio.fs.basename(nixio.fs.readlink(member .. "/block"))
 			local dsize = disp_size(tonumber(nixio.fs.readfile(member .. "/block/size")))
 			local dstate = nixio.fs.readfile(member .. "/state"):gsub("_", " "):match "^%s*(.-)%s*$"
 			table.insert(members, { name = dname, size = dsize, state = dstate, color = colors[i] })
@@ -137,13 +137,13 @@
    end
 
    if show_disc == 1 then
-   for d,dev in ipairs(luci.fs.glob("/sys/class/scsi_disk/*/device")) do
+   for dev in nixio.fs.glob("/sys/class/scsi_disk/*/device") do
 	local section
 	local model = nixio.fs.readfile(dev .. "/model")
 	local fw = nixio.fs.readfile(dev .. "/rev")
-	for b,bdev in ipairs(luci.fs.glob(dev .. "/block/*")) do
+	for bdev in nixio.fs.glob(dev .. "/block/*") do
 		local section
-		local name = luci.fs.basename(bdev)
+		local name = nixio.fs.basename(bdev)
 		local size = tonumber(nixio.fs.readfile(bdev .. "/size"))
 		local unused = size
 		local status = "-"
@@ -178,7 +178,7 @@
                                 elseif attrib == "Sector Sizes" then
                                         secsize = val:match "([0-9]*) bytes physical"
                                 elseif attrib == "Sector Size" then
-                                        sectorsize = val:match "([0-9]*)"
+                                        secsize = val:match "([0-9]*)"
                                 elseif attrib == "Serial Number" then
                                         serial = val
                                 elseif attrib == "194" then
@@ -225,7 +225,7 @@
                         <td style="padding-top:0px; border-top-width:0px" colspan="7" rowspan="2">
                         <table style="border: 0pt; border-collapse:collapse; width:100%; padding:0px; margin:0px"><tr>
                         <% for _,part in pairs(dev.parts) do %>
-                                <td style="padding: 0px 4px; border-radius: 3px; background-color:#<%=part.color%>" width="<%=part.perc%>%"><%=part.name%> <%=disp_size(part.size)%> <%=part.fs%></td>
+                                <td style="text-align:center; padding: 0px 4px; border-radius: 3px; background-color:#<%=part.color%>" width="<%=part.perc%>%"><%=part.name%> <%=disp_size(part.size)%> <%=part.fs%></td>
                         <% end %>
                         </tr></table>
                         </td>
@@ -263,7 +263,7 @@
 			<td style="padding-top:0px; border-top-width:0px" colspan="6" rowspan="2">
 				<table style="border: 0pt; border-collapse:collapse; width:100%; padding:0px; margin:0px"><tr>
 					<% for _,member in pairs(dev.members) do %>
-					<td style="padding: 0px 4px; border-radius: 3px; background-color:#<%=member.color%>; white-space: nowrap"><%=member.name%> <%=member.size%> (<%=member.state%>)</td>
+					<td style="text-align:center; padding: 0px 4px; border-radius: 3px; background-color:#<%=member.color%>; white-space: nowrap"><%=member.name%> <%=member.size%> (<%=member.state%>)</td>
 					<% end %>
 				</tr></table>
 			</td>

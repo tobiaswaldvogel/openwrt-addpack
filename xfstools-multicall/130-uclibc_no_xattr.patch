@@ -1,0 +1,26 @@
+--- a/fsr/xfs_fsr.c
++++ b/fsr/xfs_fsr.c
+@@ -34,7 +34,6 @@
+ #include <sys/wait.h>
+ #include <sys/vfs.h>
+ #include <sys/statvfs.h>
+-#include <sys/xattr.h>
+ 
+ 
+ #ifndef XFS_XFLAG_NODEFRAG
+@@ -1026,6 +1025,7 @@ fsr_setup_attr_fork(
+ 	int		tfd,
+ 	xfs_bstat_t	*bstatp)
+ {
++#if 0
+ 	struct stat64	tstatbuf;
+ 	int		i;
+ 	int		diff = 0;
+@@ -1196,6 +1196,7 @@ fsr_setup_attr_fork(
+ out:
+ 	if (dflag)
+ 		fsrprintf(_("set temp attr\n"));
++#endif
+ 	/* We failed to resolve the fork difference */
+ 	if (dflag && diff)
+ 		fsrprintf(_("failed to match fork offset\n"));;

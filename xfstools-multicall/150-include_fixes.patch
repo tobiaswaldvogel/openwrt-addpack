@@ -52,7 +52,7 @@
  struct vxfs_super_block {
 --- a/fsr/xfs_fsr.c
 +++ b/fsr/xfs_fsr.c
-@@ -25,6 +25,7 @@
+@@ -24,6 +24,7 @@
  #include <xfs/xfs_dinode.h>
  #include <xfs/xfs_attr_sf.h>
  

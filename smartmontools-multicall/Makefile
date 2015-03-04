@@ -20,7 +20,7 @@ PKG_MAINTAINER:=Maxim Storchak <m.storchak@gmail.com>
 PKG_LICENSE:=GPL-2.0+
 
 PKG_BUILD_DEPENDS:=luci
-PO2LMO:=$(BUILD_DIR)/luci/build/po2lmo
+PO2LMO:=$(STAGING_DIR_HOST)/bin/po2lmo
 
 BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_BUILD_DIR:=$(BUILD_DIR)/smartmontools-$(PKG_VERSION)

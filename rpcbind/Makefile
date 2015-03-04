@@ -32,7 +32,8 @@ define Package/rpcbind/description
   Converts RPC program numbers into universal addresses
 endef
 
-TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/tirpc
+TARGET_CFLAGS  += -I$(STAGING_DIR)/usr/include/tirpc
+CONFIGURE_ARGS += --with-rpcuser=root
 
 define Package/rpcbind/install
 	$(INSTALL_DIR) $(1)/usr/bin

@@ -1,0 +1,7 @@
+{
+	"system/fstab": {
+		"title": "Mount Points",
+		"acls": [ "fstab" ],
+		"view": "system/fstab"
+	}
+}

@@ -13,6 +13,7 @@ PKG_RELEASE:=2
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 PKG_BUILD_DEPENDS:=luci
+PO2LMO:=$(STAGING_DIR_HOST)/bin/po2lmo
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -55,7 +56,7 @@ define Package/luci-app-$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 	for transl in files/*.po; do \
 		transl_dest=`basename $$$$transl .po`.lmo; \
-		$(BUILD_DIR)/luci/build/po2lmo $$$$transl $(1)/usr/lib/lua/luci/i18n/$$$$transl_dest; \
+		$(PO2LMO) $$$$transl $(1)/usr/lib/lua/luci/i18n/$$$$transl_dest; \
 	done
 endef
 

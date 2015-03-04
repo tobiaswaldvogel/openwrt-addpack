@@ -125,7 +125,7 @@ end
 function action_init()
 	math.randomseed(os.time())
 	local init_state = reqval("init_state") or "none"
-	local dns_domain = reqval("dns_domain") or "local.net"
+	local dns_domain = reqval("dns_domain") or "home.net"
 	local domain = reqval("domain") or dns_domain
 	local basedn = reqval("basedn") or "dc=" .. dns_domain:gsub("[\.]", ",dc=")
 	local ldappw = reqval("ldappw") or rnd_pw(12)
@@ -193,7 +193,7 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	local hostu = host:upper()
 	local keytab  = "/etc/krb5.keytab"
 	local SID
-	local timeout
+	local tries
 
 	dc = dns_domain:gsub("[\.](.*)", "")
 
@@ -222,9 +222,18 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	l:write("Starting LDAP ... ")
 	luci.sys.exec("/etc/init.d/ldap start")
 	l:write("done\nConnecting ... ")
-	rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
+	tries = 5
+	while tries > 0 do
+		rc,msg,ld = lualdap.open("ldapi:///", "EXTERNAL")
+		if rc == 0 then break end
+		tries = tries - 1
+		os.execute("sleep 1")
+		if tries == 0 then
+			l:write(msg .. "\n")
+			return 1
+		end
+	end
 	l:write(msg .. "\n")
-	if not (rc == 0) then return 1 end
 
 	l:write("Adding " .. basedn .. " ... ")
 	rc,msg = ld:add (basedn, { objectClass = { "dcObject", "organization" }, o = "root", dc = dc })
@@ -289,15 +298,15 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 	c:set("samba", c:get_first("samba", "samba"), "workgroup", domain)
 	c:save("samba")
 	c:commit("samba")
-	os.execute("/etc/init.d/samba restart")
+	os.execute("/etc/init.d/samba4 restart")
 
-	timeout = 10
-	while timeout > 0 do
+	tries = 10
+	while tries > 0 do
 		SID = get_sambaSID(ld)
 		if SID ~= "" then break end
 		os.execute("sleep 1")
-		timeout = timeout - 1
-		if timeout == 0 then return 1 end
+		tries = tries - 1
+		if tries == 0 then return 1 end
 	end
 	l:write("done\n")
 

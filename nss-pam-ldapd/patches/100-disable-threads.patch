@@ -1,0 +1,141 @@
+--- a/nslcd/cfg.h
++++ b/nslcd/cfg.h
+@@ -81,7 +81,9 @@
+ };
+ 
+ struct ldap_config {
++#ifdef WITH_THREADS
+   int threads;    /* the number of threads to start */
++#endif
+   char *uidname;  /* the user name specified in the uid option */
+   uid_t uid;      /* the user id nslcd should be run as */
+   gid_t gid;      /* the group id nslcd should be run as */
+--- a/nslcd/cfg.c
++++ b/nslcd/cfg.c
+@@ -1147,7 +1147,9 @@
+ {
+   int i;
+   memset(cfg, 0, sizeof(struct ldap_config));
++#ifdef WITH_THREADS
+   cfg->threads = 5;
++#endif
+   cfg->uidname = NULL;
+   cfg->uid = NOUID;
+   cfg->gid = NOGID;
+@@ -1251,8 +1253,10 @@
+     /* runtime options */
+     if (strcasecmp(keyword, "threads") == 0)
+     {
++#ifdef WITH_THREADS
+       cfg->threads = get_int(filename, lnr, keyword, &line);
+       get_eol(filename, lnr, keyword, &line);
++#endif
+     }
+     else if (strcasecmp(keyword, "uid") == 0)
+     {
+@@ -1622,7 +1626,9 @@
+   const char **strp;
+   char buffer[1024];
+   int *scopep;
++#ifdef WITH_THREADS
+   log_log(LOG_DEBUG, "CFG: threads %d", nslcd_cfg->threads);
++#endif
+   if (nslcd_cfg->uidname != NULL)
+     log_log(LOG_DEBUG, "CFG: uid %s", nslcd_cfg->uidname);
+   else if (nslcd_cfg->uid != NOUID)
+--- a/nslcd/nslcd.c
++++ b/nslcd/nslcd.c
+@@ -92,10 +92,10 @@
+ 
+ /* the server socket used for communication */
+ static int nslcd_serversocket = -1;
+-
++#ifdef WITH_THREADS
+ /* thread ids of all running threads */
+ static pthread_t *nslcd_threads;
+-
++#endif
+ /* if we don't have clearenv() we have to do this the hard way */
+ #ifndef HAVE_CLEARENV
+ 
+@@ -191,6 +191,13 @@
+ {
+   /* just save the signal to indicate that we're stopping */
+   nslcd_receivedsignal = signum;
++
++#ifndef WITH_THREADS
++  if (signum != SIGUSR1) {
++	close(nslcd_serversocket);
++	nslcd_serversocket = -1;
++  }
++#endif
+ }
+ 
+ /* do some cleaning up before terminating */
+@@ -524,7 +531,11 @@
+   /* clean up the session if we're done */
+   pthread_cleanup_push(worker_cleanup, session);
+   /* start waiting for incoming connections */
++#ifdef WITH_THREADS
+   while (1)
++#else
++  while (nslcd_receivedsignal == 0)
++#endif
+   {
+     /* time out connection to LDAP server if needed */
+     myldap_session_check(session);
+@@ -795,6 +806,7 @@
+   sigaddset(&signalmask, SIGTERM);
+   sigaddset(&signalmask, SIGUSR1);
+   sigaddset(&signalmask, SIGUSR2);
++#ifdef WITH_THREADS
+   pthread_sigmask(SIG_BLOCK, &signalmask, &oldmask);
+   /* start worker threads */
+   log_log(LOG_INFO, "accepting connections");
+@@ -816,6 +828,7 @@
+     }
+   }
+   pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
++#endif
+   /* install signalhandlers for some signals */
+   install_sighandler(SIGHUP, sig_handler);
+   install_sighandler(SIGINT, sig_handler);
+@@ -830,7 +843,11 @@
+   /* wait until we received a signal */
+   while ((nslcd_receivedsignal == 0) || (nslcd_receivedsignal == SIGUSR1))
+   {
++#ifdef WITH_THREADS
+     sleep(INT_MAX); /* sleep as long as we can or until we receive a signal */
++#else
++    worker(NULL);
++#endif
+     if (nslcd_receivedsignal == SIGUSR1)
+     {
+       log_log(LOG_INFO, "caught signal %s (%d), refresh retries",
+@@ -842,15 +859,18 @@
+   /* print something about received signal */
+   log_log(LOG_INFO, "caught signal %s (%d), shutting down",
+           signame(nslcd_receivedsignal), nslcd_receivedsignal);
++#ifdef WITH_THREADS
+   /* cancel all running threads */
+   for (i = 0; i < nslcd_cfg->threads; i++)
+     if (pthread_cancel(nslcd_threads[i]))
+       log_log(LOG_WARNING, "failed to stop thread %d (ignored): %s",
+               i, strerror(errno));
++#endif
+   /* close server socket to trigger failures in threads waiting on accept() */
+   close(nslcd_serversocket);
+   nslcd_serversocket = -1;
+   /* if we can, wait a few seconds for the threads to finish */
++#ifdef WITH_THREADS
+ #ifdef HAVE_PTHREAD_TIMEDJOIN_NP
+   ts.tv_sec = time(NULL) + 3;
+   ts.tv_nsec = 0;
+@@ -863,6 +883,7 @@
+     if (pthread_kill(nslcd_threads[i], 0) == 0)
+       log_log(LOG_ERR, "thread %d is still running, shutting down anyway", i);
+   }
++#endif
+   /* we're done */
+   return EXIT_FAILURE;
+ }

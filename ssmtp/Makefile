@@ -36,6 +36,13 @@ define Package/luci-app-$(PKG_NAME)
   TITLE:=E-Mail notification (ssmtp)
 endef
 
+define Package/luci2-$(PKG_NAME)
+  SECTION:=luci2
+  CATEGORY:=LuCI2
+  TITLE:=LuCI2 $(PKG_NAME) module
+  DEPENDS:=luci2 +ssmtp
+endef
+
 CONFIGURE_VARS += \
 	LIBS="$(TARGET_LDFLAGS) -lcrypto -lssl"
 
@@ -63,6 +70,17 @@ define Package/luci-app-$(PKG_NAME)/install
 #	$(CP) files/$(APP_NAME).*.lmo $(1)/usr/lib/lua/luci/i18n/
 endef
 
+define Package/luci2-$(PKG_NAME)/install
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/menu.d
+	$(INSTALL_DATA) ./share/menu.d/* $(1)/usr/share/rpcd/menu.d/
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) ./share/acl.d/* $(1)/usr/share/rpcd/acl.d/
+	$(INSTALL_DIR) $(1)/www/luci2/template
+	$(INSTALL_DATA) ./htdocs/luci2/template/* $(1)/www/luci2/template
+	$(INSTALL_DIR) $(1)/www/luci2/view
+	$(INSTALL_DATA) ./htdocs/luci2/view/* $(1)/www/luci2/view
+endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
 $(eval $(call BuildPackage,luci-app-$(PKG_NAME)))
+$(eval $(call BuildPackage,luci2-$(PKG_NAME)))

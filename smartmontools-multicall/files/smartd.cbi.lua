@@ -6,10 +6,8 @@ LuCI hdmon
 
 m = Map("smartd", translate("S.M.A.R.T. Hard disk monitoring"), translate("Monitors disks using S.M.A.R.T."))
 
-require("luci.fs")
-
 local devices = {}
-luci.util.update(devices, luci.fs.glob("/dev/sd?") or {})
+nixio.util.consume((nixio.fs.glob("/dev/sd?")), devices)
 
 s = m:section(SimpleSection)
 s.template = "admin_status/disc_status"
@@ -22,7 +20,7 @@ s.template = "cbi/tblsection"
 disk = s:option(Value, "disk", translate("Disk"))
 disk.rmempty = fales
 for _, dev in ipairs(devices) do
-	disk:value(luci.fs.basename(dev))
+	disk:value(nixio.fs.basename(dev))
 end
 s:option(Flag, "testmail", translate("Send test email"))
 

@@ -4,6 +4,7 @@ PKG_NAME:=luci-app-idm
 PKG_VERSION=1.0
 PKG_RELEASE:=1
 PKG_BUILD_DEPENDS:=luci
+PO2LMO:=$(STAGING_DIR_HOST)/bin/po2lmo
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_INSTALL_DIR:=$(PKG_BUILD_DIR)/ipkg-install
@@ -41,7 +42,7 @@ define Package/luci-app-idm/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 	for transl in files/*.po; do \
 		transl_dest=`basename $$$$transl .po`.lmo; \
-		$(BUILD_DIR)/luci/build/po2lmo $$$$transl $(1)/usr/lib/lua/luci/i18n/$$$$transl_dest; \
+		$(PO2LMO) $$$$transl $(1)/usr/lib/lua/luci/i18n/$$$$transl_dest; \
 	done
 endef
 

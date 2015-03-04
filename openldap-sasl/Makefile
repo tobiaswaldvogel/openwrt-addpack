@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=openldap-sasl
-PKG_VERSION:=2.4.39
+PKG_VERSION:=2.4.40
 PKG_RELEASE:=1
 
 PKG_SOURCE:=openldap-$(PKG_VERSION).tgz

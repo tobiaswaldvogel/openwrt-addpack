@@ -1,15 +1,3 @@
---- a/configure.ac
-+++ b/configure.ac
-@@ -3,7 +3,8 @@ AC_INIT(include/libxfs.h)
- AC_CONFIG_AUX_DIR([.])
- AC_CONFIG_MACRO_DIR([m4])
- AC_CONFIG_SRCDIR([include/libxfs.h])
--AC_CONFIG_HEADER(include/platform_defs.h)
-+# Put a dummy here (http://www.mail-archive.com/automake@gnu.org/msg09241.html)
-+AC_CONFIG_HEADERS([doesnotexist.h include/platform_defs.h])
- AC_PREFIX_DEFAULT(/usr)
- 
- AC_PROG_LIBTOOL
 --- a/include/builddefs.in
 +++ b/include/builddefs.in
 @@ -20,6 +20,8 @@
@@ -41,10 +29,12 @@
    ])
  
  # 
-@@ -37,5 +37,5 @@ AC_DEFUN([AC_TYPE_U32],
+@@ -37,7 +37,7 @@ AC_DEFUN([AC_TYPE_U32],
  #include <stddef.h>
      ], [
           __u32  u32;
 -    ], AC_DEFINE(HAVE___U32) AC_MSG_RESULT(yes) , AC_MSG_RESULT(no))
 +    ], AC_DEFINE([HAVE___U32], [1], [Define if __u32 exists]) AC_MSG_RESULT(yes) , AC_MSG_RESULT(no))
    ])
+ #
+ # Check if we have umode_t

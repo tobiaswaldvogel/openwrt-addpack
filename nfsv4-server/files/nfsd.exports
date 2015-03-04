@@ -1,1 +1,1 @@
-/mnt	*(ro,all_squash,insecure,sync)
+/mnt	*(fsid=0,ro,all_squash,insecure,sync)

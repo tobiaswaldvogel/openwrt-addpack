@@ -1,0 +1,10 @@
+{
+	"realtime": {
+		"description": "Realtime graphs",
+		"read": {
+			"uci": [
+				"p910nd"
+			]
+		},
+	}
+}

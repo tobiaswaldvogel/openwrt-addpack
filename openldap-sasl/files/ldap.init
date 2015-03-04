@@ -48,6 +48,10 @@ start_server() {
 		procd_set_param command /usr/sbin/slapd -d 0 -s 0 -h "ldapi:/// ldap://" -f $CONFFILE 
 		procd_set_param respawn
 		procd_close_instance
+
+		echo -e "URI\tldapi:///" >$CLNTCONF
+		chmod 644 $CLNTCONF
+		sed -i -e "s/passwd:files$/passwd:files ldap/g" -e "s/group:files$/group:files ldap/g" $NSSWITCH
 	}
 }
 
@@ -62,12 +66,6 @@ service_triggers() {
 start_service() {
 	config_load ldap
 	config_foreach  start_server server
-
-	[ -e /var/run/ldapi ] && {
-		echo -e "URI\tldapi:///" >$CLNTCONF
-		chmod 644 $CLNTCONF
-		sed -i -e "s/passwd:files$/passwd:files ldap/g" -e "s/group:files$/group:files ldap/g" $NSSWITCH
-	}
 }
 
 stop_service() {

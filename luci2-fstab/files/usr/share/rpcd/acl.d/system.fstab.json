@@ -1,0 +1,15 @@
+{
+	"fstab": {
+		"description": "Mount point management",
+		"read": {
+			"uci": [
+				"fstab"
+			]
+		},
+		"write": {
+			"uci": [
+				"fstab"
+			]
+		}
+	}
+}
