@@ -1,0 +1,15 @@
+{
+	"p910nd": {
+		"description": "p910nd Printer server",
+		"read": {
+			"uci": [
+				"p910nd"
+			]
+		},
+		"write": {
+			"uci": [
+				"p910nd"
+			]
+		}
+	}
+}

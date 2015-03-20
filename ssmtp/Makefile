@@ -63,22 +63,22 @@ endef
 
 define Package/luci-app-$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
-	$(CP) files/$(PKG_NAME).controller.lua $(1)/usr/lib/lua/luci/controller/$(PKG_NAME).lua
+	$(INSTALL_DATA) luci/$(PKG_NAME).controller.lua $(1)/usr/lib/lua/luci/controller/$(PKG_NAME).lua
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi
-	$(CP) files/$(PKG_NAME).cbi.lua $(1)/usr/lib/lua/luci/model/cbi/$(PKG_NAME).lua
+	$(INSTALL_DATA) luci/$(PKG_NAME).cbi.lua $(1)/usr/lib/lua/luci/model/cbi/$(PKG_NAME).lua
 #	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 #	$(CP) files/$(APP_NAME).*.lmo $(1)/usr/lib/lua/luci/i18n/
 endef
 
 define Package/luci2-$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/menu.d
-	$(INSTALL_DATA) ./share/menu.d/* $(1)/usr/share/rpcd/menu.d/
+	$(INSTALL_DATA) ./luci2/services.ssmtp.json.menu $(1)/usr/share/rpcd/menu.d/services.ssmtp.json
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
-	$(INSTALL_DATA) ./share/acl.d/* $(1)/usr/share/rpcd/acl.d/
+	$(INSTALL_DATA) ./luci2/services.ssmtp.json.acl $(1)/usr/share/rpcd/acl.d/services.ssmtp.json
 	$(INSTALL_DIR) $(1)/www/luci2/template
-	$(INSTALL_DATA) ./htdocs/luci2/template/* $(1)/www/luci2/template
+	$(INSTALL_DATA) ./luci2/services.ssmtp.htm $(1)/www/luci2/template/
 	$(INSTALL_DIR) $(1)/www/luci2/view
-	$(INSTALL_DATA) ./htdocs/luci2/view/* $(1)/www/luci2/view
+	$(INSTALL_DATA) ./luci2/services.ssmtp.js $(1)/www/luci2/view/
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))

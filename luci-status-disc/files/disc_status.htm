@@ -126,11 +126,13 @@
 		end
 
 		local members = {}
+		local c = 1
 		for member in nixio.fs.glob("/sys/block/" .. name .. "/md/dev-*") do
 			local dname = nixio.fs.basename(nixio.fs.readlink(member .. "/block"))
 			local dsize = disp_size(tonumber(nixio.fs.readfile(member .. "/block/size")))
 			local dstate = nixio.fs.readfile(member .. "/state"):gsub("_", " "):match "^%s*(.-)%s*$"
-			table.insert(members, { name = dname, size = dsize, state = dstate, color = colors[i] })
+			table.insert(members, { name = dname, size = dsize, state = dstate, color = colors[c] })
+			c = c + 1
 		end
 		table.insert(raid, {name=name, rlevel=rlevel, ndisks=ndisks, size=size, metav=metav, status=status, members=members })
 	end

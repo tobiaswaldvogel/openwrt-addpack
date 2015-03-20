@@ -4,8 +4,6 @@ LuCI Spindown
 
 ]]--
 
-require "luci.fs"
-
 m = Map("hdidle", translate("HD idle"), translate("Spin down disks after a period of idle time."))
 
 s = m:section(SimpleSection)
@@ -19,7 +17,9 @@ s.template = "cbi/tblsection"
 
 disk = s:option(Value, "disk", translate("Disk"))
 disk.rmempty = false
-for _, dev in ipairs(luci.fs.glob("/dev/sd?")) do
+
+
+for dev in nixio.fs.glob("/dev/sd?") do
 	disk:value(dev:sub(6))
 end
 

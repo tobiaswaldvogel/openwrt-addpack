@@ -1,0 +1,7 @@
+{
+	"services/p910nd": {
+		"title": "p910nd - Printer server",
+		"acls": [ "p910nd" ],
+		"view": "service/p910nd"
+	}
+}

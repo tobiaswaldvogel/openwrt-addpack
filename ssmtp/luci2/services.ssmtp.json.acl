@@ -1,0 +1,15 @@
+{
+	"ssmtp": {
+		"description": "Email notification management",
+		"read": {
+			"uci": [
+				"ssmtp"
+			]
+		},
+		"write": {
+			"uci": [
+				"ssmtp"
+			]
+		}
+	}
+}

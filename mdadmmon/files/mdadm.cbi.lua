@@ -6,8 +6,6 @@ LuCI mdadm
 
 m = Map("mdadm", translate("RAID monitoring"), translate("Monitors RAID arrays and sends an email notification in case of failure."))
 
-require("luci.fs")
-
 s = m:section(SimpleSection)
 s.template = "admin_status/disc_status"
 s.hide_disc = 1
