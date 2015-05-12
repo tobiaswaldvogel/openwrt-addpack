@@ -1,5 +1,5 @@
---- a/Makefile	2012-06-22 23:14:37.204932158 +0200
-+++ b/Makefile	2012-06-22 23:31:54.355756952 +0200
+--- a/Makefile
++++ b/Makefile
 @@ -42,7 +42,7 @@
  
  LIB_SUBDIRS = libxfs libxlog libxcmd libhandle libdisk
@@ -17,8 +17,8 @@
  
  ifneq ($(ENABLE_BLKID), yes)
  mkfs: libdisk
---- a/multi/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ b/multi/Makefile	2012-06-24 01:37:46.261111008 +0200
+--- a/multi/Makefile
++++ b/multi/Makefile
 @@ -0,0 +1,128 @@
 +#
 +# Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
@@ -148,11 +148,16 @@
 +install-dev:
 +
 +-include .dep
---- a/multi/xfs_tools.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/multi/xfs_tools.c	2012-06-24 01:23:53.621840325 +0200
-@@ -0,0 +1,38 @@
+--- a/multi/xfs_tools.c
++++ b/multi/xfs_tools.c
+@@ -0,0 +1,61 @@
 +#include <stdio.h>
 +#include <string.h>
++#include <syslog.h>
++#include <stdarg.h>
++#include <unistd.h>
++#include <limits.h>
++#include <stdlib.h>
 +
 +extern int xfs_repair_main(int argc, char **argv);
 +extern int xfs_db_main(int argc, char **argv);
@@ -161,7 +166,7 @@
 +
 +static struct {
 +	const char *name;
-+	int (*func)(int argc, char **argv);
++	int (*func_main)(int argc, char **argv);
 +} multicall[] = {
 +	{ "xfs_repair", xfs_repair_main },
 +	{ "fsck.xfs", xfs_repair_main },
@@ -174,17 +179,35 @@
 +
 +int main(int argc, char **argv)
 +{
-+	int i;
++	unsigned int i, len;
++	extern char *__progname;
++	char path[PATH_MAX], *self;
 +
-+	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
-+		if (strstr(argv[0], multicall[i].name))
-+			return multicall[i].func(argc, argv);
++	len = readlink("/proc/self/exe", path, sizeof(path));
++	path[len] = 0;
++	for (i=len-2; i>0 && path[i] != '/'; --i);
++	self = path + i + 1;
++
++	if (0 == strcmp(__progname, self)) {
++		if (argc == 1) goto usage;
++		argv++;
++		--argc;
++		__progname = argv[0];
 +	}
 +
-+	fprintf(stderr, "Invalid multicall command, available commands:");
-+	for (i = 0; i < ARRAY_SIZE(multicall); i++)
-+		fprintf(stderr, " %s", multicall[i].name);
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		if (0 == strcmp(__progname, multicall[i].name)) {
++			return multicall[i].func_main(argc, argv);
++		}
++	}
 +
++usage:
++	fprintf(stderr, "%s multicall binary\nAvailable commands:\n\n", self);
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		fprintf(stderr, "%s", multicall[i].name);
++		if (i != 0 && i != ARRAY_SIZE(multicall)-1)
++			fprintf(stderr, ", ");
++	}
 +	fprintf(stderr, "\n");
 +
 +	return 1;

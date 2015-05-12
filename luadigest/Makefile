@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luadigest
-PKG_VERSION:=1.0
+PKG_VERSION:=2.0
 PKG_RELEASE:=1
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
@@ -20,8 +20,7 @@ define Package/luadigest
   SECTION:=lang
   CATEGORY:=Languages
   TITLE:=Lua Digest Library
-  URL:=http://www.tecgraf.puc-rio.br/~lhf/ftp/lua/
-  DEPENDS:=+libopenssl +liblua
+  DEPENDS:=+libpolarssl +liblua
 endef
 
 define Build/Prepare
@@ -29,17 +28,18 @@ define Build/Prepare
 	$(CP) src/* $(PKG_BUILD_DIR)/
 endef
 
-PKG_JOBS:=digests
-TARGET_CFLAGS += -fPIC
+#TARGET_CFLAGS += -fPIC
+#		MD4_SOURCE=`find ../mbedtls* -name md4.c`; \
+#		$(TARGET_CC) $(TARGET_CFLAGS) -DPOLARSSL_MD4_C -c $$$$MD4_SOURCE -o md4_mbedtls.o; \
 
 define Build/Compile
 	(cd  $(PKG_BUILD_DIR); \
-		$(TARGET_CC) $(TARGET_CFLAGS) -g -DUSE_MD4_OPENSSL -c lmd5.c -o md4.o; \
-		$(TARGET_CC) $(TARGET_CFLAGS) -shared -Wl,-soname,md4.so -o md4.so md4.o -llua -lcrypto; \
-		$(TARGET_CC) $(TARGET_CFLAGS) -g -DUSE_MD5_OPENSSL -c lmd5.c -o md5.o; \
-		$(TARGET_CC) $(TARGET_CFLAGS) -shared -Wl,-soname,md5.so -o md5.so md5.o -llua -lcrypto; \
-		$(TARGET_CC) $(TARGET_CFLAGS) -g -DUSE_SHA1_OPENSSL -c lmd5.c -o sha1.o; \
-		$(TARGET_CC) $(TARGET_CFLAGS) -shared -Wl,-soname,sha1.so -o sha1.so sha1.o -llua -lcrypto \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -DDIGEST=md4 -DDIGEST_LEN=16 -c luadigest.c -o md4.o; \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -shared -Wl,-soname,md4.so -o md4.so md4.o -llua -lmbedtls; \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -DDIGEST=md5 -DDIGEST_LEN=16 -c luadigest.c -o md5.o; \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -shared -Wl,-soname,md5.so -o md5.so md5.o -llua -lmbedtls; \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -DDIGEST=sha1 -DDIGEST_LEN=20 -c luadigest.c -o sha1.o; \
+		$(TARGET_CC) $(TARGET_CFLAGS) -fPIC -shared -Wl,-soname,sha1.so -o sha1.so sha1.o -llua -lmbedtls; \
 	)
 endef
 

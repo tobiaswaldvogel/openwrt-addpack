@@ -83,10 +83,7 @@ TARGET_CFLAGS += \
 	-DSAMR_SUPPORT \
 	-DLSA_SUPPORT
 
-TARGET_LDFLAGS += \
-	-Wl,--gc-sections -laio -lkrb5 -l:libcom_err.so.3 -ldl -lgssapi_krb5 -ltirpc \
-	-Wl,-rpath-link=$(STAGING_DIR)/usr/lib -lkrb5 \
-	-L$(STAGING_DIR)/usr/lib/libiconv/lib \
+TARGET_LDFLAGS += -Wl,--gc-sections -ltirpc
 
 CONFIGURE_VARS += \
 	ac_cv_file__proc_sys_kernel_core_pattern=yes \
@@ -131,7 +128,6 @@ CONFIGURE_VARS += \
 	ac_cv_header_zlib_h=yes \
 	samba_cv_zlib_1_2_3=yes \
 	ac_cv_lib_ext_krb5_krb5_mk_req_extended=yes \
-	ac_cv_path_KRB5CONFIG=$(STAGING_DIR)/usr \
 	smb_krb5_cv_enctype_to_string_takes_krb5_context_arg=no \
 	smb_krb5_cv_enctype_to_string_takes_size_t_arg=yes
 

@@ -23,7 +23,7 @@
 				<th class="cbi-section-table-cell left" style="width: 30%"></th>
 			</tr>
 			<% style = nil; newgid = 103; for gid,grp in pairs(groups) do %>
-			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>" rowspan=2>
+			<tr class="cbi-section-table-row cbi-rowstyle-<%=(style and 1 or 2)%>" rowspan="2">
 				<td class="cbi-section-table-cell left">
 					<div style="text-indent: 17px; background: url('<%=resource%>/cbi/group.gif') no-repeat scroll 1px center;"><%=grp.cn%></div>
 				</td>
@@ -64,7 +64,7 @@
 			</tr><tr style="height:0px" />
 			<% end %>
 			<% if act == "none" then %>
-			<tr class="cbi-section-table-row" rowspan=2">
+			<tr class="cbi-section-table-row" rowspan="2">
 				<td colspan="5" class="cbi-section-table-cell left">
 					<input class="cbi-button cbi-button-add" type="submit" value="<%:Add%>"
 						onclick="document.getElementById('act').value='grpadd'" />
@@ -274,7 +274,7 @@
 				<%end%>
 				</select></td>
 			</tr><tr style="height:0px" />
-			<tr class="cbi-section-table-row" rowspan=2">
+			<tr class="cbi-section-table-row" rowspan="2">
 				<td class="cbi-section-table-cell right"><%:Password%></td>
 				<td class="cbi-section-table-cell left"><input class="cbi-input-password" type="password" name="pw" value="" /></td>
 			</tr><tr style="height:0px" />

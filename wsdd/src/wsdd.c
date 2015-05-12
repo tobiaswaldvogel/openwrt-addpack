@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <net/if.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -93,8 +94,6 @@ char 	sequence[48];
 int	instance_id;
 int	msg_no = 1;
 char	in[8192], out[8192];
-char	iface[32] = "";
-struct in_addr	iface_addr;
 
 /* Variable for computer device */
 char	cd_name[128];
@@ -105,6 +104,22 @@ char	cd_manufacturer[128] = "wsdd";
 char	cd_model[128] = "wsdd";
 char	cd_serial[32] = "1";
 char	cd_firmware[16] = "1.0";
+
+void wsdd_log(int priority, const char* format, ...) {
+	va_list va;
+	char printbuf[1024];
+
+	if (priority > loglevel)
+		return;
+
+	va_start(va, format);
+	vsnprintf(printbuf, sizeof(printbuf), format, va);
+
+	if (usesyslog)
+		syslog(priority, "%s", printbuf);
+	else
+		fprintf(stderr, "%s\n", printbuf);
+}
 
 void daemonize(void)
 {
@@ -138,7 +153,8 @@ void daemonize(void)
 	}
 
 	/* change to root directory and close file descriptors */
-	chdir("/");
+	if (chdir("/"))
+		wsdd_log(LOG_INFO, "chdir / failed");
 	maxfd = getdtablesize();
 	for (i = 0; i < maxfd; i++)
 		close(i);
@@ -147,22 +163,6 @@ void daemonize(void)
 	open("/dev/null", O_RDONLY);
 	open("/dev/null", O_WRONLY);
 	open("/dev/null", O_WRONLY);
-}
-
-void wsdd_log(int priority, const char* format, ...) {
-	va_list va;
-	char printbuf[1024];
-
-	if (priority > loglevel)
-		return;
-
-	va_start(va, format);
-	vsnprintf(printbuf, sizeof(printbuf), format, va);
-
-	if (usesyslog)
-		syslog(priority, "%s", printbuf);
-	else
-		fprintf(stderr, "%s\n", printbuf);
 }
 
 /* Find xml tag value */
@@ -516,14 +516,16 @@ int udp_receive(int conn, struct sockaddr *from, int *from_len, struct in_addr *
 	/* Get local IP */
 	*recv_ip = 0;
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != 0; cmsg = CMSG_NXTHDR(&msg, cmsg))
-		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO)
-			*to = ((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_spec_dst;
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
+			struct in_pktinfo* pi = (struct in_pktinfo*)CMSG_DATA(cmsg);
+			*to = pi->ipi_spec_dst;
+		}
 
 	*from_len = msg.msg_namelen;
 	return in_len;
 }
 
-int udp_send(int conn, const struct in_addr from, const struct sockaddr *to, int to_len, int out_len)
+int udp_send(int socket, const struct in_addr from, const struct sockaddr *to, int to_len, int out_len)
 {
 	char	msg_control[1024];
 	struct	iovec iovec[1];
@@ -549,9 +551,39 @@ int udp_send(int conn, const struct in_addr from, const struct sockaddr *to, int
 	pktinfo->ipi_ifindex = 0;
 	pktinfo->ipi_spec_dst = from;
 
-	return sendmsg(conn, &msg, 0);
+	return sendmsg(socket, &msg, 0);
 }
 
+int udp_send_all(int socket, struct in_addr *iface, const struct sockaddr* to, int to_len, int out_len)
+{
+	struct ifconf	ifc;
+	char 		buf[1024] = { 0 };
+	struct ifreq	*ifr = 0;
+	struct in_addr	from;
+	int		i;
+	int		rc = 0;
+	char		ip[64];
+
+	/* Send through all interfaces */
+	ifc.ifc_len = sizeof(buf);
+	ifc.ifc_buf = buf;
+	ioctl(socket, SIOCGIFCONF, &ifc);
+	ifr = ifc.ifc_req;
+
+	for(i=0; i<(ifc.ifc_len/sizeof(*ifr)); i++) {
+		from.s_addr = ((struct sockaddr_in *)&ifr[i].ifr_addr)->sin_addr.s_addr;
+		if (iface->s_addr != INADDR_ANY && iface->s_addr != from.s_addr)
+			continue;
+
+		if (udp_send(socket, from, to, to_len, out_len) == 1) {
+			inet_ntop(AF_INET, &from.s_addr, ip, sizeof(ip));
+			wsdd_log(LOG_ERR, "Failed to send udp from %s\n", ip);
+			rc = -1;
+		}
+	}
+
+	return rc;
+}
 
 void wsd_udp_request(int conn)
 {
@@ -566,10 +598,10 @@ void wsd_udp_request(int conn)
 		return;
 
 	strncpy(recv_ip, inet_ntoa(to), sizeof(recv_ip));
-		
+
 	out_len = sizeof(out);
 	if (handle_request(recv_ip, in, in_len, out, &out_len, 0) == 0)
-		udp_send(conn, iface_addr, &from, from_len, out_len);
+		udp_send(conn, to, &from, from_len, out_len);
 }
 
 /* llmnr responder */
@@ -617,7 +649,41 @@ void llmnr_udp_request(int conn)
 	out[out_len++] = sizeof(to);
 	memcpy(out+out_len, &to, sizeof(to));
 	out_len += sizeof(to);
-	udp_send(conn, iface_addr, &from, from_len, out_len);
+	udp_send(conn, to, &from, from_len, out_len);
+}
+
+static int set_multicast(int socket, char* maddr, struct in_addr *iface, int action)
+{
+	struct ifconf	ifc;
+	char 		buf[1024] = { 0 };
+	struct ifreq	*ifr = 0;
+	struct ip_mreq	mreq;
+	int		i;
+	int		rc = 0;
+	char		ip[64];
+
+	mreq.imr_multiaddr.s_addr = inet_addr(maddr);
+	mreq.imr_interface = *iface;
+
+	/* For each interface, add to multicast group */
+	ifc.ifc_len = sizeof(buf);
+	ifc.ifc_buf = buf;
+	ioctl(socket, SIOCGIFCONF, &ifc);
+	ifr = ifc.ifc_req;
+
+	for(i=0; i<(ifc.ifc_len/sizeof(*ifr)); i++) {
+		mreq.imr_interface.s_addr = ((struct sockaddr_in *)&ifr[i].ifr_addr)->sin_addr.s_addr;
+		if (iface->s_addr != INADDR_ANY && iface->s_addr != mreq.imr_interface.s_addr)
+			continue;
+
+		if (setsockopt(socket, IPPROTO_IP, action, &mreq, sizeof(mreq)) < 0) {
+			inet_ntop(AF_INET, &mreq.imr_interface.s_addr, ip, sizeof(ip));
+			wsdd_log(LOG_ERR, "Failed to set multicast for %s\n", ip);
+			rc = 1;
+		}
+	}
+
+	return rc;
 }
 
 static void sigterm_handler(int sig, siginfo_t *siginfo, void *context)
@@ -628,8 +694,8 @@ static void sigterm_handler(int sig, siginfo_t *siginfo, void *context)
 /* main function */
 int main(int argc, char *argv[])
 {
-	struct sockaddr_in	si, wsd_mcast;
 	int			opt, retval = 0;
+	struct sockaddr_in	si, wsd_mcast;
 	uuid_t			uuid;
 	char 			uuid_str[37];
 	struct sigaction	act;
@@ -637,10 +703,12 @@ int main(int argc, char *argv[])
 	int			out_len;
 	int			conn, clients, i, activity;
 	struct pollfd		fds[MAX_CLIENTS+3];
-	struct ip_mreq		llmnr_imr, wsdd_imr;
-	
+	char			iface[32] = "";
+	struct 			in_addr iface_addr;
+
 	gethostname(cd_name, sizeof(cd_name));
-	
+	iface_addr.s_addr = INADDR_ANY;
+
 	/* process command line options */
 	while ((opt = getopt(argc, argv, "dhFIn:w:i:")) != -1) {
 		switch (opt) {
@@ -678,7 +746,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	iface_addr.s_addr = htonl(INADDR_ANY);
 	if (*iface)
 		if (inet_aton(iface, &iface_addr) == 0) {
 			wsdd_log(LOG_ERR, "Invalid interface address %s", iface);
@@ -718,19 +785,10 @@ int main(int argc, char *argv[])
 	/* Prepare LLMNR socket */
 	fds[LLMNR_UDP_SOCK].fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fds[LLMNR_UDP_SOCK].fd == -1) {
-		wsdd_log(LOG_ERR, "Failed to create socket");
+		wsdd_log(LOG_ERR, "Failed to create socket, %s", strerror(errno));
 		return 1;
 	}
 	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));
-
-	llmnr_imr.imr_multiaddr.s_addr = inet_addr(LLMNR_MCAST_ADDR);
-	llmnr_imr.imr_interface = iface_addr;
-	if (setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&llmnr_imr, sizeof(struct ip_mreq)) < 0)
-	{
-		wsdd_log(LOG_ERR, "Failed to add multicast membershipfor LLMNR");
-		retval = 1;
-		goto llmnr_udp_close;
-	}
 
 	memset((char *) &si, 0, sizeof(si));
 	si.sin_family = AF_INET;
@@ -739,8 +797,14 @@ int main(int argc, char *argv[])
 	if (bind(fds[LLMNR_UDP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) == -1) {
 		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d for LLMNR", ntohs(si.sin_port));
 		retval = 1;
-		goto llmnr_drop_multicast;
+		goto llmnr_udp_close;
 	}	
+
+	if (set_multicast(fds[LLMNR_UDP_SOCK].fd, LLMNR_MCAST_ADDR, &iface_addr, IP_ADD_MEMBERSHIP)) {
+		wsdd_log(LOG_ERR, "Failed to add multicast for LLMNR: %s", strerror(errno));
+		retval = 1;
+		goto llmnr_drop_multicast;
+	}
 
 	fds[WSD_UDP_SOCK].fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fds[WSD_UDP_SOCK].fd == -1) {
@@ -750,21 +814,18 @@ int main(int argc, char *argv[])
 	}
 	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_PKTINFO, &enable, sizeof(enable));
 
-	wsdd_imr.imr_multiaddr.s_addr = inet_addr(WSD_MCAST_ADDR);
-	wsdd_imr.imr_interface = iface_addr;
-	if (setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void *)&wsdd_imr, sizeof(struct ip_mreq)) < 0)
-	{
-		wsdd_log(LOG_ERR, "Failed to add multicast membership for wsdd");
-		retval = 1;
-		goto wsd_udp_close;
-	}
-	
 	memset((char *) &si, 0, sizeof(si));
 	si.sin_family = AF_INET;
 	si.sin_port = htons(WSD_PORT);
 	si.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(fds[WSD_UDP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) == -1) {
 		wsdd_log(LOG_ERR, "Failed to listen to UDP port %d for WSDD", ntohs(si.sin_port));
+		retval = 1;
+		goto wsd_udp_close;
+	}
+
+	if (set_multicast(fds[WSD_UDP_SOCK].fd, WSD_MCAST_ADDR, &iface_addr, IP_ADD_MEMBERSHIP)) {
+		wsdd_log(LOG_ERR, "Failed to add multicast for WSDD: %s", strerror(errno));
 		retval = 1;
 		goto wsd_drop_multicast;
 	}
@@ -784,7 +845,7 @@ int main(int argc, char *argv[])
 	if (bind(fds[WSD_HTTP_SOCK].fd, (const struct sockaddr*)&si, sizeof(si)) < 0) {
 		wsdd_log(LOG_ERR, "Failed to listen to HTTP port %d", WSD_HTTP_PORT);
 		retval = 1;
-		goto wsd_drop_multicast;
+		goto wsd_http_close;
 	}	
 
 	if (listen(fds[WSD_HTTP_SOCK].fd, 5) < 0) {
@@ -796,12 +857,12 @@ int main(int argc, char *argv[])
 	/* Send hello message */
 	out_len = sizeof(out);
 	action_hello(out, &out_len, wsd_device, 0);
-	if (udp_send(fds[WSD_UDP_SOCK].fd, iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
+	if (udp_send_all(fds[WSD_UDP_SOCK].fd, &iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
 		wsdd_log(LOG_ERR, "Failed to send hello with %d", errno);
 		retval = 1;
 		goto wsd_http_close;
 	}
-		
+
 	clients = 0;
 	fds[WSD_HTTP_SOCK].events = POLLIN;
 	fds[WSD_UDP_SOCK].events = POLLIN;
@@ -863,7 +924,7 @@ int main(int argc, char *argv[])
 	/* Send bye message */
 	out_len = sizeof(out);
 	action_bye(out, &out_len, wsd_device, 0);
-	if (udp_send(fds[WSD_UDP_SOCK].fd, iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
+	if (udp_send_all(fds[WSD_UDP_SOCK].fd, &iface_addr, (const struct sockaddr*)&wsd_mcast, sizeof(wsd_mcast), out_len) == -1) {
 		wsdd_log(LOG_ERR, "Failed to send bye with %d", errno);
 		retval = 1;
 	}
@@ -872,19 +933,19 @@ wsd_http_close:
 	shutdown(fds[WSD_HTTP_SOCK].fd, SHUT_RDWR);
 	close(fds[WSD_HTTP_SOCK].fd);
 
-wsd_drop_multicast:	
-	setsockopt(fds[WSD_UDP_SOCK].fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void*)&wsdd_imr, sizeof(wsdd_imr));
+wsd_drop_multicast:
+	set_multicast(fds[WSD_UDP_SOCK].fd, WSD_MCAST_ADDR, &iface_addr, IP_DROP_MEMBERSHIP);
 
 wsd_udp_close:
 	shutdown(fds[WSD_UDP_SOCK].fd, SHUT_RDWR);
-	close(fds[WSD_UDP_SOCK].fd);	
+	close(fds[WSD_UDP_SOCK].fd);
 	
-llmnr_drop_multicast:	
-	setsockopt(fds[LLMNR_UDP_SOCK].fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&llmnr_imr, sizeof(llmnr_imr));
+llmnr_drop_multicast:
+	set_multicast(fds[LLMNR_UDP_SOCK].fd, LLMNR_MCAST_ADDR, &iface_addr, IP_DROP_MEMBERSHIP);
 
 llmnr_udp_close:
 	shutdown(fds[LLMNR_UDP_SOCK].fd, SHUT_RDWR);
-	close(fds[LLMNR_UDP_SOCK].fd);	
+	close(fds[LLMNR_UDP_SOCK].fd);
 
 	if (asdaemon)
 		closelog();

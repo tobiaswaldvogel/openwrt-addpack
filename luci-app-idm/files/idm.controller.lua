@@ -74,15 +74,15 @@ function action_user()
 		desc = attrs[attr_group[3]]
 
 		groups[gid] = {
-                        dn    = dn,
-                        cn    = attrs[attr_group[1]],
-                        desc  = desc,
+			dn    = dn,
+			cn    = attrs[attr_group[1]],
+			desc  = desc,
 		}
 
 		grp_lbl[gid] = desc .. " (" .. gid .. ")"
 	end
 
-        local attr_host  = { "uid", "description", "uidNumber", "gidNumber", "krbPrincipalName" }
+	local attr_host  = { "uid", "description", "uidNumber", "gidNumber", "krbPrincipalName" }
 	local hosts = { }
 
 	for dn, attrs in ld:search { attrs = attr_host, filter="(&(!(objectClass=inetOrgPerson))(uid=*))", scope="s" } do
@@ -94,30 +94,30 @@ function action_user()
 		end
 
 		hosts[name] = {
-                        dn = dn,
-                        desc   = attrs[attr_host[2]],
-                        uidn   = tonumber(attrs[attr_host[3]]),
-                        gid    = tonumber(gid),
-                        kpn    = attrs[attr_host[5]],
-                }
+			dn = dn,
+			desc   = attrs[attr_host[2]],
+			uidn   = tonumber(attrs[attr_host[3]]),
+			gid    = tonumber(gid),
+			kpn    = attrs[attr_host[5]],
+		}
 
-	end	
+	end
 
 	local attr_user = { "uid","givenName","sn", "uidNumber", "gidNumber", "krbPrincipalName","homeDirectory", "loginShell" }
 	local users = { }
 
 	for dn, attrs in ld:search { attrs = attr_user, filter="(&(objectClass=inetOrgPerson)(uid=*))", scope="s" } do
 		users[attrs[attr_user[1]]] = {
-                        dn = dn,
-                        gn =  attrs[attr_user[2]],
-                        sn =  attrs[attr_user[3]],
-                        uidn = tonumber(attrs[attr_user[4]]),
-                        gid = tonumber(attrs[attr_user[5]]),
-                        kpn = attrs[attr_user[6]],
-                        homedir = attrs[attr_user[7]],
-                        shell = attrs[attr_user[8]],
-                }
-        end
+			dn = dn,
+			gn =  attrs[attr_user[2]],
+			sn =  attrs[attr_user[3]],
+			uidn = tonumber(attrs[attr_user[4]]),
+			gid = tonumber(attrs[attr_user[5]]),
+			kpn = attrs[attr_user[6]],
+			homedir = attrs[attr_user[7]],
+			shell = attrs[attr_user[8]],
+		}
+	end
 
 	luci.template.render("idm/idm_main", {act=new_act, obj=new_obj, grp_lbl=grp_lbl, groups=groups, users=users, hosts=hosts})
 end
@@ -149,18 +149,18 @@ function action_init()
 	luci.template.render("idm/idm_init", {init_state=init_state, act=action, dns_domain=dns_domain, domain=domain, basedn=basedn, ldappw=ldappw, status=status})
 	if not run then return end
 
-        local pid, i, o, s, l, rc
+	local pid, i, o, s, l, rc
 
-        pid = nixio.fork()
-        if pid > 0 then return end
+	pid = nixio.fork()
+	if pid > 0 then return end
 
 	i = nixio.open("/dev/null", "r")
 	o = nixio.open("/dev/null", "w")
 	s = nixio.open(file_error, "w")
-        nixio.dup(i, nixio.stdin)
-        nixio.dup(o, nixio.stdout)
+	nixio.dup(i, nixio.stdin)
+	nixio.dup(o, nixio.stdout)
 	nixio.dup(s, nixio.stderr)
-        i:close()
+	i:close()
 	o:close()
 	s:close()
 
@@ -278,13 +278,13 @@ function do_init(l, dns_domain, domain, basedn, ldappw)
 
 	l:write("Configuring Kerberos ... ")
 	nixio.fs.writefile("/etc/config/krb5", "")
-        c = luci.model.uci.cursor()
-        c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc={"localhost"}, kadmind={"localhost"}, ldap={"ldapi:///"},
+	c = luci.model.uci.cursor()
+	c:section("krb5", "realm", domain:gsub("[\.]", "_"), { name=domain, kdc={"localhost"}, kadmind={"localhost"}, ldap={"ldapi:///"},
 		 enctype={"rc4-hmac:normal"}, master_key_type="rc4-hmac" })
-        c:save("krb5")
-        c:commit("krb5")
+	c:save("krb5")
+	c:commit("krb5")
 	os.execute("/etc/init.d/krb5conf start")
-        l:write("done\n")
+	l:write("done\n")
 
 	initcmd = "kdb5_ldap_util -H ldapi:/// create -r " .. domain .. " -containerref \"" .. basedn .. "\" -s -P " .. rnd_pw(20)
 	l:write(luci.sys.exec(initcmd))
@@ -431,11 +431,11 @@ function get_realm(ld)
 end
 
 function get_sambaSID(ld)
-        local dn, attrs
+	local dn, attrs
 
-        for dn, attrs in ld:search { attrs = { "sambaSID", "sambaDomainName" }, base = basedn, filter="objectClass=sambaDomain", scope="s" } do
-                return attrs["sambaSID"],attrs["sambaDomainName"]
-        end
+	for dn, attrs in ld:search { attrs = { "sambaSID", "sambaDomainName" }, base = basedn, filter="objectClass=sambaDomain", scope="s" } do
+		return attrs["sambaSID"],attrs["sambaDomainName"]
+	end
 	return "", ""
 end
 
@@ -452,19 +452,19 @@ end
 function grpadd(ld, cn, gid, desc)
 	local ou = get_ou(ld, "Groups")
 	local dn = "cn=" ..  cn .. "," .. ou
-        local attrs = {}
+	local attrs = {}
 
-        attrs["objectClass"]	= { "top", "posixGroup", "sambaGroupMapping" }
-        attrs["cn"]		= cn
-        attrs["gidNumber"]	= gid
+	attrs["objectClass"]	= { "top", "posixGroup", "sambaGroupMapping" }
+	attrs["cn"]		= cn
+	attrs["gidNumber"]	= gid
 	attrs["sambaSID"]	= get_sambaSID(ld) .. "-" .. gid
-        if (not desc) or (desc == "") then desc = cn end
+	if (not desc) or (desc == "") then desc = cn end
 	attrs["description"]	= desc
 	attrs["displayName"]	= desc
 	attrs["sambaGroupType"]	= 2
 
-        local rc,msg = ld:add(dn, attrs)
-        return rc,msg,dn
+	local rc,msg = ld:add(dn, attrs)
+	return rc,msg,dn
  end
 
 function usrmod(ld, dn, gn, sn, uidn, gid, kpn, pw, homedir, shell)

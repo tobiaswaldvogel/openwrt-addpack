@@ -1,7 +1,0 @@
-#/bin/bash
-for file in ../../../build_dir/*/luci/po/*/samba.po; do
-  dir=`dirname $file`
-  lang=`basename $dir`
-  f=`basename $file .po`
-  cp ${file} files/${f}4.$lang.po
-done

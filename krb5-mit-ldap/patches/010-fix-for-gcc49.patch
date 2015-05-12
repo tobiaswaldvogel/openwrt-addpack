@@ -1,0 +1,11 @@
+--- a/src/kadmin/ktutil/ktutil_funcs.c
++++ b/src/kadmin/ktutil/ktutil_funcs.c
+@@ -64,7 +64,7 @@
+     krb5_kt_list *list;
+     int idx;
+ {
+-    krb5_kt_list lp, prev;
++    krb5_kt_list lp, prev=0;
+     int i;
+ 
+     for (lp = *list, i = 1; lp; prev = lp, lp = lp->next, i++) {

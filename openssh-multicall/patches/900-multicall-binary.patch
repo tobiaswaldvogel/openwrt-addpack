@@ -1,0 +1,203 @@
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -62,7 +62,7 @@
+ EXEEXT=@EXEEXT@
+ MANFMT=@MANFMT@
+ 
+-TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT)
++TARGETS=ssh$(EXEEXT) sshd$(EXEEXT) ssh-add$(EXEEXT) ssh-keygen$(EXEEXT) ssh-keyscan${EXEEXT} ssh-keysign${EXEEXT} ssh-pkcs11-helper$(EXEEXT) ssh-agent$(EXEEXT) scp$(EXEEXT) sftp-server$(EXEEXT) sftp$(EXEEXT) openssh$(EXEEXT)
+ 
+ LIBOPENSSH_OBJS=\
+ 	ssh_api.o \
+@@ -193,6 +193,87 @@
+ sftp$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-client.o sftp-common.o sftp-glob.o progressmeter.o
+ 	$(LD) -o $@ progressmeter.o sftp.o sftp-client.o sftp-common.o sftp-glob.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) $(LIBEDIT)
+ 
++session_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Ddebug_flag=sshd_debug_flag -c session.c -o $@
++
++sshconnect_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dclient_version_string=sshconnect_client_version_string -Dserver_version_string=sshconnect_server_version_string -c sshconnect.c -o $@
++
++sshconnect2_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dauthmethods=sshconnect2_authmethods \
++	-Dclient_version_string=sshconnect_client_version_string -Dserver_version_string=sshconnect_server_version_string \
++	-Dsession_id2=sshconnect2_session_id2 -Dsession_id2_len=sshconnect2_session_id2_len -c sshconnect2.c -o $@
++
++roaming_serv_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dwait_for_roaming_reconnect=wait_for_roaming_reconnect_serv -c roaming_serv.c -o $@
++
++roaming_client_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dwait_for_roaming_reconnect=wait_for_roaming_reconnect_client -c roaming_client.c -o $@
++
++clientloop_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dcleanup_exit=ssh_cleanup_exit -c clientloop.c -o $@
++
++ssh_api_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmm_choose_dh=dummy_mm_choose_dh -Duse_privsep=dummy_use_privsep \
++	-Dsession_id2=dummy_session_id2 -Dsession_id2_len=dummy_session_id2_len -c ssh_api.c -o $@
++
++ssh_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_main -Ddebug_flag=ssh_debug_flag -c ssh.c -o $@
++
++sshd_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -DMULTICALL -Dmain=sshd_main -Dcleanup_exit=sshd_cleanup_exit -Ddebug_flag=sshd_debug_flag \
++	-Dclient_version_string=sshd_client_version_string -Dserver_version_string=sshd_server_version_string \
++	-c sshd.c -o $@
++
++ssh-add_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_add_main -c ssh-add.c -o $@
++
++ssh-keygen_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_keygen_main -Dquiet=keygen_quiet -Dhash_hosts=keygen_hash_hosts -c ssh-keygen.c -o $@
++
++ssh-keyscan_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -DMULTICALL -Dmain=ssh_keyscan_main -Dhash_hosts=keyscan_hash_hosts \
++	-Dfatal=keyscan_fatal -Dactive_state=ssh_keyscan_active_state -c ssh-keyscan.c -o $@
++
++ssh-keysign_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_keysign_main -c ssh-keysign.c -o $@
++
++ssh-pkcs11-helper_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_pkcs11_helper_main -Dcleanup_exit=helper_cleanup_exit -c ssh-pkcs11-helper.c -o $@
++
++ssh-agent_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=ssh_agent_main -Dcleanup_exit=agent_cleanup_exit -c ssh-agent.c -o $@
++
++scp_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=scp_main -Dshowprogress=scp_showprogress -c scp.c -o $@
++
++sftp_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=sftp_main -Dquiet=sftp_quiet -Dshowprogress=sftp_showprogress -c sftp.c -o $@
++
++sftp-client_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=sftp-server_main -Dshowprogress=sftp_showprogress -c sftp-client.c -o $@
++
++sftp-server-main_multi.o:
++	$(CC) $(CFLAGS) $(CPPFLAGS) -Dmain=sftp_srv_main -Dcleanup_exit=sftp_srv_cleanup_exit -c sftp-server-main.c -o $@
++
++SSHOBJS_MULTI:=$(filter-out ssh.o roaming_client.o clientloop.o sshconnect.o sshconnect2.o,$(SSHOBJS)) \
++	ssh_multi.o roaming_client_multi.o clientloop_multi.o sshconnect_multi.o sshconnect2_multi.o
++SSHDOBJS_MULTI:=$(filter-out sshd.o roaming_common.o roaming_serv.o session.o,$(SSHDOBJS)) \
++	sshd_multi.o roaming_serv_multi.o session_multi.o
++LIBSSH_OBJS_MULTI=$(filter-out ssh_api.o,$(LIBSSH_OBJS)) ssh_api_multi.o
++OBJS_MULTI=multicall.o scp_multi.o ssh-add_multi.o ssh-keyscan_multi.o \
++	ssh-keygen_multi.o ssh-keysign_multi.o sftp_multi.o sftp-server-main_multi.o \
++	sftp-client_multi.o ssh-agent_multi.o \
++	sftp-glob.o
++
++libssh_multi.a: $(LIBSSH_OBJS_MULTI)
++	$(AR) rv $@ $(LIBSSH_OBJS_MULTI)
++	$(RANLIB) $@
++
++openssh$(EXEEXT): libssh_multi.a $(LIBSSH_OBJS_MULTI) $(LIBCOMPAT) $(OBJS_MULTI) $(SSHOBJS_MULTI) $(SSHDOBJS_MULTI)
++	$(LD) -o $@ $(OBJS_MULTI) $(SSHOBJS_MULTI) $(SSHDOBJS_MULTI) \
++	$(LDFLAGS) -lssh_multi -lopenbsd-compat $(SSHLIBS) $(SSHDLIBS) $(LIBS) $(GSSLIBS) $(K5LIBS)
++
+ # test driver for the loginrec code - not built by default
+ logintest: logintest.o $(LIBCOMPAT) libssh.a loginrec.o
+ 	$(LD) -o $@ logintest.o $(LDFLAGS) loginrec.o -lopenbsd-compat -lssh $(LIBS)
+--- a/multicall.c
++++ b/multicall.c
+@@ -0,0 +1,101 @@
++#include <stdio.h>
++#include <string.h>
++#include <syslog.h>
++#include <stdarg.h>
++#include <unistd.h>
++#include <limits.h>
++#include <stdlib.h>
++
++extern int ssh_main(int argc, char **argv);
++extern int sshd_main(int argc, char **argv);
++extern int ssh_add_main(int argc, char **argv);
++extern int ssh_keygen_main(int argc, char **argv);
++extern int ssh_keyscan_main(int argc, char **argv);
++extern int ssh_keysign_main(int argc, char **argv);
++extern int ssh_agent_main(int argc, char **argv);
++extern int scp_main(int argc, char **argv);
++extern int sftp_main(int argc, char **argv);
++extern int sftp_srv_main(int argc, char **argv);
++
++extern void ssh_cleanup_exit(int i);
++extern void sshd_cleanup_exit(int i);
++extern void sftp_srv_cleanup_exit(int i);
++extern void agent_cleanup_exit(int i);
++
++extern int wait_for_roaming_reconnect_client(void);
++extern int wait_for_roaming_reconnect_serv(void);
++
++static struct {
++	const char *name;
++	int (*func_main)(int argc, char **argv);
++	void (*func_cleanup)(int i);
++	int (*func_roaming)(void);
++} multicall[] = {
++	{ "ssh", ssh_main, ssh_cleanup_exit, wait_for_roaming_reconnect_client },
++	{ "scp", scp_main, 0, 0 },
++	{ "ssh-add", ssh_add_main, 0, 0 },
++	{ "ssh-keygen", ssh_keygen_main, 0, 0 },
++	{ "ssh-keyscan", ssh_keyscan_main, 0, 0 },
++	{ "sshd", sshd_main, sshd_cleanup_exit, wait_for_roaming_reconnect_serv },
++	{ "ssh-keysign", ssh_keysign_main, 0, 0 },
++	{ "ssh-agent", ssh_agent_main, agent_cleanup_exit, 0 },
++	{ "sftp", sftp_main, 0, 0 },
++	{ "sftp-server", sftp_srv_main, sftp_srv_cleanup_exit, 0 },
++};
++
++#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
++
++int (*func_roaming)(void) = 0;
++void (*func_cleanup)(int i) = 0;
++
++int main(int argc, char **argv)
++{
++	unsigned int i, len;
++	extern char *__progname;
++	char path[PATH_MAX], *self;
++
++	len = readlink("/proc/self/exe", path, sizeof(path));
++	path[len] = 0;
++	for (i=len-2; i>0 && path[i] != '/'; --i);
++	self = path + i + 1;
++
++	if (0 == strcmp(__progname, self)) {
++		if (argc == 1) goto usage;
++		argv++;
++		--argc;
++		__progname = argv[0];
++	}
++
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		if (0 == strcmp(__progname, multicall[i].name)) {
++			func_roaming = multicall[i].func_roaming;
++			func_cleanup = multicall[i].func_cleanup;
++			return multicall[i].func_main(argc, argv);
++		}
++	}
++
++usage:
++	fprintf(stderr, "%s multicall binary\nAvailable commands:\n\n", self);
++	for (i = 0; i < ARRAY_SIZE(multicall); i++) {
++		fprintf(stderr, "%s", multicall[i].name);
++		if (i != 0 && i != ARRAY_SIZE(multicall)-1)
++			fprintf(stderr, ", ");
++	}
++	fprintf(stderr, "\n");
++
++	return 1;
++}
++
++int wait_for_roaming_reconnect(void)
++{
++	if (!func_roaming)
++		return 1;
++	return func_roaming();
++}
++
++void clean_exit(int i)
++{
++	if (!func_cleanup)
++		_exit(i);
++	func_cleanup(i);
++}

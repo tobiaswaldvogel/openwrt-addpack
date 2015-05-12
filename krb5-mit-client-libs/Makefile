@@ -16,8 +16,6 @@ PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
 
-MAKE_PATH:=src
-
 define Package/krb5-mit/Default
 	SECTION:=net
 	CATEGORY:=Network
@@ -29,7 +27,7 @@ endef
 
 define Package/krb5-mit-client-libs
 	$(call Package/krb5-mit/Default)
-	DEPENDS:=+libncurses +libkeyutils +libreadline
+	DEPENDS:=+libncurses +libkeyutils +libreadline +libext2fs
 	TITLE+= (Initial shared Libraries)
 endef
 
@@ -41,7 +39,10 @@ define Build/Prepare
 	$(call Build/Patch/Default)
 endef
 
+TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/et
+
 CONFIGURE_PATH = src
+MAKE_PATH:=src
 
 CONFIGURE_VARS += \
 	cross_compiling=yes \
@@ -56,6 +57,7 @@ CONFIGURE_ARGS += \
 	--enable-thread-support \
 	--enable-dns-for-realm \
 	--disable-pkinit \
+	--with-system-et \
 	--without-tcl \
 	--without-libedit \
 	--without-ldap \
@@ -69,17 +71,14 @@ define Build/InstallDev
 	$(CP) $(PKG_INSTALL_DIR)/usr/include $(1)/usr/include/krb5
 	$(INSTALL_DIR) $(1)/usr
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib $(1)/usr
-	rm $(1)/usr/lib/libcom_err.so
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(CP) $(PKG_INSTALL_DIR)/usr/bin/krb5-config $(1)/usr/bin
 	$(SED) 's,^includedir=$$$${prefix}/include,includedir=$(STAGING_DIR)/usr/include/krb5,g' $(1)/usr/bin/krb5-config
 	$(SED) 's,^libdir=$$$${exec_prefix}/lib,libdir=$(STAGING_DIR)/usr/lib,g' $(1)/usr/bin/krb5-config
-	$(SED) 's,-lcom_err,-l:libcom_err.so.3,g' $(1)/usr/bin/krb5-config
 endef
 
 define Package/krb5-mit-client-libs/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcom_err.so.* $(1)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libgssapi_krb5.so* $(1)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libk5crypto.so* $(1)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libkrb5.so* $(1)/usr/lib/

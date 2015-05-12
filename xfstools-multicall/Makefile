@@ -31,7 +31,7 @@ define Package/xfs-tools
   SECTION:=utils
   CATEGORY:=Utilities
   SUBMENU:=Filesystem
-  DEPENDS:=+libuuid +libpthread +librt
+  DEPENDS:=+libuuid +libblkid +libpthread +librt
   URL:=http://oss.sgi.com/projects/xfs
   TITLE:=Multicall for xfs_repair xfs_db and xfs_mkfs
 endef

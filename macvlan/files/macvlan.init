@@ -1,0 +1,37 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008-2012 OpenWrt.org
+
+START=11
+STOP=89
+
+interface_add() {
+	local ifname
+	local prefix
+
+	config_get ifname $1 ifname
+	prefix=${ifname%%_*}
+
+	[ "$ifname" == "$prefix" ] ||
+		ip link add link $prefix $ifname type macvlan 
+}
+
+interface_del() {
+	local ifname
+	local prefix
+
+	config_get ifname $1 ifname
+	prefix=${ifname%%_*}
+
+	[ "$ifname" == "$prefix" ] ||
+		ip link del link $prefix dev $ifname
+}
+
+start() {
+	config_load network
+	config_foreach interface_add interface
+}
+
+stop() {
+	config_load network
+	config_foreach interface_del interface
+}
