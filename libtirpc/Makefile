@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libtirpc
-PKG_VERSION:=0.2.3
+PKG_VERSION:=0.3.1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
@@ -25,10 +25,10 @@ define Package/libtirpc
   CATEGORY:=Libraries
   TITLE:=Library TI RPC for RPC bindings
   URL:=http://libtirpc.sourceforge.net/
-  DEPENDS:=+libpthread +libgssglue
+  DEPENDS:=+libpthread
 endef
 
-CONFIGURE_ARGS += --enable-gss
+CONFIGURE_ARGS += --disable-gssapi
 #CONFIGURE_VARS += \
 #	GSSGLUE_LIBS="-lkrb5 -lk5crypto -l:libcom_err.so.3 -lkeyutils -lresolv -gssapi_krb5" \
 #	GSSGLUE_CFLAGS=-I$(STAGING_DIR)/usr/include/krb5/
