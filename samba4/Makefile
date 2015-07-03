@@ -12,7 +12,7 @@ PKG_VERSION:=4.0.25
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \
-	http://ftp.samba.org/pub/samba/old-versions
+	http://ftp.samba.org/pub/samba/stable
 PKG_SOURCE:=samba-$(PKG_VERSION).tar.gz
 PKG_BUILD_DIR:=$(BUILD_DIR)/samba-$(PKG_VERSION)
 PKG_MD5SUM:=
@@ -24,13 +24,19 @@ PKG_BUILD_DEPENDS:=luci
 PO2LMO:=$(STAGING_DIR_HOST)/bin/po2lmo
 
 PKG_BUILD_PARALLEL:=1
+PKG_BUILD_DEPENDS:=util-linux krb5-mit-ldap luci
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/nls.mk
 
 MAKE_PATH:=source3
 CONFIGURE_PATH:=source3
 
 PKG_BUILD_BIN:=$(PKG_BUILD_DIR)/$(MAKE_PATH)/bin
+define Build/Prepare
+	$(Build/Prepare/Default)
+	cd $(PKG_BUILD_DIR)/$(CONFIGURE_PATH) && ./autogen.sh
+endef
 
 define Package/samba4-server
   SECTION:=net
@@ -38,7 +44,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +krb5-mit-client +libiconv +libacl +libreadline +libaio +libtirpc +wsdd
+  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs $(INTL_DEPENDS) +libacl +libreadline +libaio +libtirpc +wsdd
 endef
 
 define Package/samba4-client
@@ -83,7 +89,7 @@ TARGET_CFLAGS += \
 	-DSAMR_SUPPORT \
 	-DLSA_SUPPORT
 
-TARGET_LDFLAGS += -Wl,--gc-sections -ltirpc
+TARGET_LDFLAGS += -Wl,--gc-sections -ltirpc $(INTL_LIBS)
 
 CONFIGURE_VARS += \
 	ac_cv_file__proc_sys_kernel_core_pattern=yes \
@@ -161,7 +167,6 @@ CONFIGURE_ARGS += \
 	--with-ads \
 	--with-krb5=$(STAGING_DIR)/usr \
 	--with-ldap \
-	--with-libiconv=$(STAGING_DIR)/usr/lib/libiconv \
 	--with-acl-support \
 	--with-quotas \
 	--with-syslog \
@@ -201,6 +206,7 @@ define Package/samba4-server/install
 endef
 
 define Package/samba4-server/conffiles
+/etc/config/samba4
 /etc/samba/smb.conf.template
 endef
 

@@ -19,6 +19,7 @@ PKG_SOURCE_URL:=ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/ \
 PKG_MD5SUM:=
 
 PKG_FIXUP:=autoreconf
+PKG_BUILD_DEPENDS:=cyrus-sasl-krb5
 
 BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_BUILD_DIR:=$(BUILD_DIR)/openldap-$(PKG_VERSION)

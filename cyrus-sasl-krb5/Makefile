@@ -35,7 +35,7 @@ define Package/libsasl2-krb5
   CATEGORY:=Libraries
   TITLE:=A general purpose authentication library (with krb5)
   URL:=http://asg.web.cmu.edu/sasl/
-  DEPENDS:=+krb5-mit-client-libs +libopenssl
+  DEPENDS:=+libopenssl
 endef
 
 define Package/sasl2-krb5

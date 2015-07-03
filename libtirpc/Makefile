@@ -25,7 +25,7 @@ define Package/libtirpc
   CATEGORY:=Libraries
   TITLE:=Library TI RPC for RPC bindings
   URL:=http://libtirpc.sourceforge.net/
-  DEPENDS:=+libpthread +libgssglue
+  DEPENDS:=+libpthread +libgssglue +libgssapi
 endef
 
 CONFIGURE_ARGS += --enable-gss
