@@ -38,7 +38,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+libaio +libtirpc
+  DEPENDS:=
 endef
 
 define Package/samba4-client
@@ -47,12 +47,6 @@ define Package/samba4-client
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
 #  DEPENDS:=+libreadline +libncurses +libopenldap-sals +krb5-mit-libs +libaio +zlib
-endef
-
-define Package/samba4-server/config
-config PACKAGE_SAMBA4_MAX_DEBUG_LEVEL
-	int "Maximum level of compiled-in debug messages"
-	default -1
 endef
 
 define Package/samba4-server/description
@@ -71,14 +65,9 @@ define Package/luci-app-$(PKG_NAME)
 endef
 
 TARGET_CFLAGS += \
-	-DMAX_DEBUG_LEVEL=$(CONFIG_PACKAGE_SAMBA4_MAX_DEBUG_LEVEL) \
-	-D_GNU_SOURCE \
-	-D__location__=\\\"\\\" \
-	-ffunction-sections -fdata-sections \
-	-DNETLOGON_SUPPORT \
-	-DLSA_SUPPORT
+	-ffunction-sections -fdata-sections 
 
-TARGET_LDFLAGS += -Wl,--gc-sections -ltirpc
+TARGET_LDFLAGS += -Wl,--gc-sections
 
 CONFIGURE_VARS += \
 	ac_cv_file__proc_sys_kernel_core_pattern=yes \
@@ -141,7 +130,7 @@ CONFIGURE_ARGS += \
 	--with-piddir=/var/run \
 	--with-privatedir=/etc/samba \
 	--with-sendfile-support \
-	--with-aio-support \
+	--without-aio-support \
 	--without-cluster-support \
 	--without-pam \
 	--without-winbind \
@@ -156,9 +145,9 @@ CONFIGURE_ARGS += \
 	--with-libiconv=$(STAGING_DIR)/usr/lib/libiconv \
 	--without-acl-support \
 	--without-quotas \
-	--with-syslog \
+	--without-syslog \
 	--with-shared-modules=pdb_tdbsam,pdb_wbc_sam,idmap_nss,nss_info_template,auth_winbind,auth_wbc,auth_domain,vfs \
-	--with-static-modules=vfs_default,vfs_dirsort,vfs_daio_linux
+	--with-static-modules=vfs_default
 
 MAKE_FLAGS += DYNEXP= PICFLAG= MODULES=
 
@@ -185,8 +174,6 @@ define Package/samba4-server/install
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbcacls
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/nmblookup
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/testparm
-	$(INSTALL_DIR) $(1)/etc/openldap/schema
-	$(CP) $(PKG_BUILD_DIR)/examples/LDAP/samba.schema $(1)/etc/openldap/schema
 	$(INSTALL_DIR) $(1)/etc/samba
 	ln -sf /var/etc/secrets.tdb $(1)/etc/samba/secrets.tdb
 	ln -sf /var/etc/schannel_store.tdb $(1)/etc/samba/schannel_store.tdb
