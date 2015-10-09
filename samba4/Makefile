@@ -38,7 +38,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=
+  DEPENDS:=+libpthread
 endef
 
 define Package/samba4-client
@@ -46,7 +46,7 @@ define Package/samba4-client
   CATEGORY:=Network
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
-#  DEPENDS:=+libreadline +libncurses +libopenldap-sals +krb5-mit-libs +libaio +zlib
+  DEPENDS:=+libreadline +libncurses +libpthread
 endef
 
 define Package/samba4-server/description
