@@ -335,8 +335,8 @@ int main(int argc, char *argv[])
 		memset(&tmp, 0x00, sizeof(tmp));
 
 		while (fgets(buf, sizeof(buf), fp) != NULL) {
-			if (!sscanf(buf, "%*d %*d %s %*u %*u %u %*u %*u %*u %u %*u %*u %*u %*u",
-					tmp.name, &tmp.reads, &tmp.writes) == 3)
+			if (sscanf(buf, "%*d %*d %s %*u %*u %u %*u %*u %*u %u %*u %*u %*u %*u",
+					tmp.name, &tmp.reads, &tmp.writes) != 3)
 				continue;
 
 			DISKSTATS *ds;

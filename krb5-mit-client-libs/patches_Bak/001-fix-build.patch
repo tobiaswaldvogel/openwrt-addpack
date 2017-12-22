@@ -1,0 +1,12 @@
+
+--- a/src/lib/krad/packet.c
++++ b/src/lib/krad/packet.c
+@@ -253,7 +253,7 @@
+ {
+     krb5_error_code retval;
+     krad_packet *pkt;
+-    uchar id;
++    uchar id = 0;
+     size_t attrset_len;
+ 
+     pkt = packet_new();

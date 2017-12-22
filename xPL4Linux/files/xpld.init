@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008-2012 OpenWrt.org
+START=90
+USE_PROCD=1
+CONFIG_DIR=/tmp/etc
+CONFIG_FILE=$CONFIG_DIR/xpld.conf
+
+add_target() {
+	[ -z "$target" ] && target=$1 || target=$target:$1
+}
+
+add_xpl_forward() {
+	local	source
+	local	target
+
+	config_get source $1 source
+	target=""
+	config_list_foreach $1 target add_target
+	echo >>$CONFIG_FILE "fwd $source=$target"
+}
+
+reload_service() {
+	restart_service
+}
+
+service_triggers() {
+	procd_add_reload_trigger "xpl"
+}
+
+start_service() {
+	mkdir -p $CONFIG_DIR
+	rm $CONFIG_FILE 2>/dev/null
+
+	config_load xpl
+	config_foreach add_xpl_forward forward
+
+	[ -e $CONFIG_FILE ] && {
+		procd_open_instance
+		procd_set_param command /usr/bin/xpld -s -i $CONFIG_FILE
+		procd_set_param respawn
+		procd_close_instance
+	}
+}

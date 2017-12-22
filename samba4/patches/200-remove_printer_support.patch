@@ -305,7 +305,7 @@
  		}
 --- a/source3/smbd/process.c
 +++ b/source3/smbd/process.c
-@@ -2691,8 +2691,10 @@ static bool housekeeping_fn(const struct
+@@ -2692,8 +2692,10 @@ static bool housekeeping_fn(const struct
  
  	change_to_root_user();
  

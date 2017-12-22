@@ -20,8 +20,8 @@ define Package/luci-nas
 	+luci-app-hdidle +luci-app-smartd +luci-app-mdadm +luci-app-idm \
 	+luci-app-samba4 +luci-app-transmission \
 	+zoneinfo-simple +zoneinfo-core +zoneinfo-europe +zoneinfo-northamerica \
-	+vsftp-aio +wget +nfs4-server \
-	+lighttpd +lighttpd-mod-cgi +lighttpd-mod-redirect
+	+vsftpd-aio +nfs4-server \
+	+luci-sgi-cgi-lighttpd
 TITLE:=luci-nas
 endef
 
@@ -35,9 +35,7 @@ define Build/Compile
 endef
 
 define Package/luci-nas/install
-	$(INSTALL_DIR) $(1)/etc/lighttpd
-	$(CP) ./files/lighttpd.conf $(1)/etc/lighttpd
-	$(CP) ./files/mime.conf $(1)/etc/lighttpd
+	$(INSTALL_DIR) $(1)/etc
 endef
 
 $(eval $(call BuildPackage,luci-nas))

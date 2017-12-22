@@ -1,0 +1,11 @@
+--- a/xPL-utils.c
++++ b/xPL-utils.c
+@@ -439,6 +439,8 @@
+   int swptr;
+   int newcnt = 0;
+ 
++  /* Set default interface to br-lan for LEDE */
++  xPL_setBroadcastInterface("br-lan");
+ 
+   /* Handle each item of the command line.  If it starts with a '-', then */
+   /* process it as a switch.  If not, then copy it to a new position in   */

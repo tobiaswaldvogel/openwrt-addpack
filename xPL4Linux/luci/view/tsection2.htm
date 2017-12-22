@@ -1,0 +1,56 @@
+<fieldset class="cbi-section" id="cbi-<%=self.config%>-<%=self.sectiontype%>">
+	<% if self.title and #self.title > 0 then -%>
+		<legend><%=self.title%></legend>
+	<%- end %>
+	<% if self.description and #self.description > 0 then -%>
+		<div class="cbi-section-descr"><%=self.description%></div>
+	<%- end %>
+	<% local isempty = true for i, k in ipairs(self:cfgsections()) do -%>
+		<%- section = k; isempty = false -%>
+		<% if self.tabs then %>
+			 <ul class="cbi-tabmenu" style="padding: 0.25rem; padding-bottom: 0">
+		<% else %>
+			<div class="cbi-tabmenu" style="padding: 0.25rem">
+		<% end %>
+
+		<% if self.header_field then %>
+			<% local id = "cbid." .. self.config .. "." .. k .. "." .. self.header_field %>
+			<input  style="font-size: 1.2rem;<%- if self.tabs then -%> width: 8rem<%- end -%>" data-update="change" id="<%=id%>" name="<%=id%>" value="<%=self.map:get(section,self.header_field)%>" />
+		<% elseif not self.anonymous then -%>
+			<span style="font-size: 1.2rem;<%- if self.tabs then -%> width: 8rem<%- end -%>"><%=section:upper()%></span>
+		<% end %>
+	
+		<% if self.tabs then %>		
+        		<%- self.selected_tab = luci.http.formvalue("tab." .. self.config .. "." .. section) %>
+		        <%- for _, tab in ipairs(self.tab_names) do if #self.tabs[tab].childs > 0 then %>
+		                <%- if not self.selected_tab then self.selected_tab = tab end %>
+		                <li id="tab.<%=self.config%>.<%=section%>.<%=tab%>" class="cbi-tab<%=(tab == self.selected_tab) and '' or '-disabled'%>">
+		                        <a onclick="this.blur(); return cbi_t_switch('<%=self.config%>.<%=section%>', '<%=tab%>')" href="<%=REQUEST_URI%>?tab.<%=self.config%>.<%=section%>=<%=tab%>"><%=self.tabs[tab].title%></a>
+		                        <% if tab == self.selected_tab then %><input type="hidden" id="tab.<%=self.config%>.<%=section%>" name="tab.<%=self.config%>.<%=section%>" value="<%=tab%>" /><% end %>
+		                </li>
+	        <% end end end -%>
+
+		<% if self.addremove then -%>
+			<input style="float: right" type="submit" name="cbi.rts.<%=self.config%>.<%=k%>" onclick="this.form.cbi_state='del-section'; return true" value="<%:Delete%>" class="cbi-button cbi-button-remove" />
+		<%- end %>
+
+		<% if self.tabs then %></ul><%- else -%></div><%- end %>
+
+		<fieldset class="cbi-section-node-tabbed" id="cbi-<%=self.config%>-<%=section%>">
+			<%+cbi/ucisection2%>
+		</fieldset>
+		<br />
+	<%- end %>
+
+	<% if isempty then -%>
+		<em><%:This section contains no values yet%><br /><br /></em>
+	<%- end %>
+
+	<% if self.addremove then -%>
+		<% if self.template_addremove then include(self.template_addremove) else -%>
+		<div class="cbi-section-create">
+			<input type="submit" class="cbi-button cbi-button-add" name="cbi.cts.<%=self.config%>.<%=self.sectiontype%>.<%=section%>" value="<%:Add%>" />
+		</div>
+		<%- end %>
+	<%- end %>
+</fieldset>

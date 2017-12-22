@@ -97,7 +97,6 @@ define Package/openssh-multicall/install
 	$(LN) ../sbin/openssh $(1)/usr/bin/ssh
 	$(LN) ../sbin/openssh $(1)/usr/bin/scp
 	$(LN) ../sbin/openssh $(1)/usr/bin/sftp
-	$(LN) ../sbin/openssh $(1)/usr/bin/sftp
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(LN) ../sbin/openssh $(1)/usr/lib/sftp-server
 	$(INSTALL_DIR) $(1)/usr/libexec

@@ -1,0 +1,11 @@
+--- a/xPL-config.c
++++ b/xPL-config.c
+@@ -188,7 +188,7 @@
+   int groupIndex, filterIndex;
+   int configIndex;
+   int valueIndex, valueCount;
+-  char intervalBuff[8];
++  char intervalBuff[10];
+   String filterText;
+   xPL_MessagePtr theMessage = xPL_createBroadcastMessage(theService, xPL_MESSAGE_STATUS);
+   xPL_ServiceConfigurablePtr configurable;

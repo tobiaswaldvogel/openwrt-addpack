@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=samba4
-PKG_VERSION:=4.0.25
+PKG_VERSION:=4.0.26
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=http://ftp.samba.org/pub/samba \

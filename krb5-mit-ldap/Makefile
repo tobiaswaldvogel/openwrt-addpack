@@ -1,20 +1,24 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=krb5-mit-ldap
-PKG_VERSION_MAJOR=1.12.1
-PKG_VERSION_MINOR=
-PKG_VERSION:=$(PKG_VERSION_MAJOR)$(PKG_VERSION_MINOR)
+PKG_VERSION:=1.14.2
 PKG_RELEASE:=2
 
-PKG_SOURCE:=krb5-$(PKG_VERSION)-signed.tar
-PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/$(PKG_VERSION_MAJOR)/
-PKG_MD5SUM:=
+PKG_MAINTAINER:=W. Michael Petullo <mike@flyn.org>
+
+PKG_LICENSE:=MIT
+PKG_LICENSE_FILES:=NOTICE
+
+PKG_SOURCE:=krb5-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/1.14/
+PKG_MD5SUM:=2e35f0af0344d68aba99cef616d3a64f
 
 PKG_BUILD_PARALLEL:=1
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)/krb5-$(PKG_VERSION)
 PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
+
+MAKE_PATH:=src
 
 define Package/krb5-mit/Default
 	SECTION:=net
@@ -22,7 +26,6 @@ define Package/krb5-mit/Default
 	SUBMENU:=Kerberos
 	TITLE:=MIT Kerberos 5
 	URL:=http://web.mit.edu/kerberos/
-	MAINTAINER:=W. Michael Petullo <mike@flyn.org>
 endef
 
 define Package/krb5-mit-libs
@@ -49,8 +52,6 @@ define Package/krb5-mit-client
 	TITLE+= (Client)
 endef
 
-# Krb5 tarball contains signature and a second tarball
-# containing source code.
 define Build/Prepare
 	tar -xOf "$(DL_DIR)/$(PKG_SOURCE)" krb5-$(PKG_VERSION).tar.gz | \
 		tar -xz -C "$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)"
@@ -60,7 +61,6 @@ endef
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/et
 
 CONFIGURE_PATH = src
-MAKE_PATH:=src
 
 CONFIGURE_VARS += \
 	cross_compiling=yes \
@@ -76,12 +76,12 @@ CONFIGURE_ARGS += \
 	--enable-dns-for-realm \
 	--disable-pkinit \
 	--with-system-et \
+	--without-system-verto \
 	--without-tcl \
 	--without-libedit \
 	--with-ldap \
 	--with-readline \
 	--with-size-optimizations \
-	--with-system-verto=no \
 	--localstatedir=/etc
 
 #EXTRA_LDFLAGS += -llber -Wl,-rpath-link=$(STAGING_DIR)/usr/lib

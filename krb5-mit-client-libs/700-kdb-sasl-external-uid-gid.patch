@@ -1,0 +1,52 @@
+--- a/src/plugins/kdb/ldap/libkdb_ldap/kdb_ldap_conn.c	2014-08-05 12:41:24.255016325 -0500
++++ b/src/plugins/kdb/ldap/libkdb_ldap/kdb_ldap_conn.c	2014-08-05 12:53:41.319523332 -0500
+@@ -60,12 +60,12 @@
+ 
+     /* For a simple bind, a DN and password are required. */
+ 
+-    if (ctx->bind_dn == NULL) {
++    if (ctx->bind_dn == NULL && ctx->bind_pwd != NULL) {
+         k5_setmsg(context, EINVAL, _("LDAP bind dn value missing"));
+         return EINVAL;
+     }
+ 
+-    if (ctx->bind_pwd == NULL && ctx->service_password_file == NULL) {
++    if (ctx->bind_dn != NULL && ctx->bind_pwd == NULL && ctx->service_password_file == NULL) {
+         k5_setmsg(context, EINVAL, _("LDAP bind password value missing"));
+         return EINVAL;
+     }
+@@ -90,6 +90,34 @@
+ {
+     struct berval               bv={0, NULL};
+ 
++    if (ldap_context->bind_dn == NULL) {
++        /* Certificate based or UID/GID based bind (SASL EXTERNAL mechanism) */
++
++        krb5_error_code st;
++        struct berval      *servercreds=NULL;
++
++        st = ldap_sasl_bind_s(ldap_server_handle->ldap_handle,
++                              NULL,        /* Authenticating dn */
++                              "EXTERNAL",  /* Method used for authentication */
++                              &bv,
++                              NULL,
++                              NULL,
++                              &servercreds);
++
++        if (st == LDAP_SASL_BIND_IN_PROGRESS) {
++            st = ldap_sasl_bind_s(ldap_server_handle->ldap_handle,
++                                  NULL,
++                                  "EXTERNAL",
++                                  servercreds,
++                                  NULL,
++                                  NULL,
++                                  &servercreds);
++        }
++
++        return st;
++    } 
++
++    /* password based simple bind */
+     bv.bv_val = ldap_context->bind_pwd;
+     bv.bv_len = strlen(ldap_context->bind_pwd);
+     return ldap_sasl_bind_s(ldap_server_handle->ldap_handle,

@@ -1,6 +1,6 @@
 --- a/source3/param/loadparm.c
 +++ b/source3/param/loadparm.c
-@@ -5508,3 +5508,17 @@
+@@ -5509,3 +5509,17 @@
  	return lp_find_security(lp__server_role(),
  				lp__security());
  }
@@ -20,7 +20,7 @@
 +}
 --- a/source3/include/proto.h
 +++ b/source3/include/proto.h
-@@ -1486,6 +1486,8 @@
+@@ -1487,6 +1487,8 @@
  void widelinks_warning(int snum);
  const char *lp_ncalrpc_dir(void);
  void _lp_set_server_role(int server_role);

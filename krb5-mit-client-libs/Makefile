@@ -1,18 +1,21 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=krb5-mit-client-libs
-PKG_VERSION_MAJOR=1.12.1
-PKG_VERSION_MINOR=
-PKG_VERSION:=$(PKG_VERSION_MAJOR)$(PKG_VERSION_MINOR)
+PKG_NAME:=krb5
+PKG_VERSION:=1.14.2
 PKG_RELEASE:=1
 
-PKG_SOURCE:=krb5-$(PKG_VERSION)-signed.tar
-PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/$(PKG_VERSION_MAJOR)/
-PKG_MD5SUM:=
+PKG_MAINTAINER:=W. Michael Petullo <mike@flyn.org>
+
+PKG_LICENSE:=MIT
+PKG_LICENSE_FILES:=NOTICE
+
+PKG_SOURCE:=krb5-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=http://web.mit.edu/kerberos/dist/krb5/1.14/
+PKG_MD5SUM:=2e35f0af0344d68aba99cef616d3a64f
 
 PKG_BUILD_PARALLEL:=1
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)/krb5-$(PKG_VERSION)
 PKG_INSTALL:=1
+PKG_CHECK_FORMAT_SECURITY:=0
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -33,11 +36,11 @@ endef
 
 # Krb5 tarball contains signature and a second tarball
 # containing source code.
-define Build/Prepare
-	tar -xOf "$(DL_DIR)/$(PKG_SOURCE)" krb5-$(PKG_VERSION).tar.gz | \
-		tar -xz -C "$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)"
-	$(call Build/Patch/Default)
-endef
+#define Build/Prepare
+#	tar -xOf "$(DL_DIR)/$(PKG_SOURCE)" krb5-$(PKG_VERSION).tar.gz | \
+#		tar -xz -C "$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)"
+#	$(call Build/Patch/Default)
+#endef
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/et
 

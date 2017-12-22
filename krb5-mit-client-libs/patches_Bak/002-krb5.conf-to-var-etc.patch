@@ -1,0 +1,12 @@
+--- a/src/include/osconf.hin
++++ b/src/include/osconf.hin
+@@ -50,7 +50,7 @@
+ #define KDB5_PLUGIN_BUNDLE_DIR       "/System/Library/KerberosPlugins/KerberosDatabasePlugins"
+ #define KRB5_AUTHDATA_PLUGIN_BUNDLE_DIR  "/System/Library/KerberosPlugins/KerberosAuthDataPlugins"
+ #else
+-#define DEFAULT_SECURE_PROFILE_PATH     "/etc/krb5.conf@SYSCONFCONF"
++#define DEFAULT_SECURE_PROFILE_PATH     "/var/etc/krb5.conf"
+ #define DEFAULT_PROFILE_PATH        DEFAULT_SECURE_PROFILE_PATH
+ #endif
+ #endif /* _WINDOWS  */
+

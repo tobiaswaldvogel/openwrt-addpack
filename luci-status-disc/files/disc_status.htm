@@ -100,41 +100,44 @@
 
    for dev in nixio.fs.glob("/sys/block/*") do
 	if nixio.fs.access(dev .. "/md") then
-		local name = nixio.fs.basename(dev)
-		local rlevel = first_line(nixio.fs.readfile(dev .. "/md/level"))
 		local ndisks = tonumber(nixio.fs.readfile(dev .. "/md/raid_disks"))
-		local size = tonumber(nixio.fs.readfile(dev .. "/size"))
-		local metav = nixio.fs.readfile(dev .. "/md/metadata_version")
-		local degr = tonumber(nixio.fs.readfile(dev .. "/md/degraded"))
-		local sync = first_line(nixio.fs.readfile(dev .. "/md/sync_action"))
-		local sync_speed = tonumber(nixio.fs.readfile(dev .. "/md/sync_speed"))
-		local sync_compl = nixio.fs.readfile(dev .. "/md/sync_completed")
-		local status = "active"
-		if sync ~= "idle" then
-			local progress, total = nixio.fs.readfile(dev .. "/md/sync_completed"):match("^([0-9]*)[^0-9]*([0-9]*)")
-			local rem = (total - progress) / sync_speed / 2
-			local rems = math.floor(rem % 60)
-			if rems < 10 then rems = "0" .. rems end
-			rem = math.floor(rem / 60)
-			local remm = math.floor(rem % 60)
-			if remm < 10 then remm = "0" .. remm end
-			local remh = math.floor(rem / 60)
-			local remstr = remh .. ":" .. remm .. ":" .. rems
-			status = sync .. " (" .. math.floor(sync_speed/1024) .. "MB/s, " .. math.floor(progress * 1000 / total) /10  .. "%, rem. " .. remstr .. ")"
-		elseif degr == 1 then
-			status = "degraded"
-		end
+		if ndisks then
+			local name = nixio.fs.basename(dev)
+			local rlevel = first_line(nixio.fs.readfile(dev .. "/md/level"))
+			local ndisks = tonumber(nixio.fs.readfile(dev .. "/md/raid_disks"))
+			local size = tonumber(nixio.fs.readfile(dev .. "/size"))
+			local metav = nixio.fs.readfile(dev .. "/md/metadata_version")
+			local degr = tonumber(nixio.fs.readfile(dev .. "/md/degraded"))
+			local sync = first_line(nixio.fs.readfile(dev .. "/md/sync_action"))
+			local sync_speed = tonumber(nixio.fs.readfile(dev .. "/md/sync_speed"))
+			local sync_compl = nixio.fs.readfile(dev .. "/md/sync_completed")
+			local status = "active"
+			if sync ~= "idle" then
+				local progress, total = nixio.fs.readfile(dev .. "/md/sync_completed"):match("^([0-9]*)[^0-9]*([0-9]*)")
+				local rem = (total - progress) / sync_speed / 2
+				local rems = math.floor(rem % 60)
+				if rems < 10 then rems = "0" .. rems end
+				rem = math.floor(rem / 60)
+				local remm = math.floor(rem % 60)
+				if remm < 10 then remm = "0" .. remm end
+				local remh = math.floor(rem / 60)
+				local remstr = remh .. ":" .. remm .. ":" .. rems
+				status = sync .. " (" .. math.floor(sync_speed/1024) .. "MB/s, " .. math.floor(progress * 1000 / total) /10  .. "%, rem. " .. remstr .. ")"
+			elseif degr == 1 then
+				status = "degraded"
+			end
 
-		local members = {}
-		local c = 1
-		for member in nixio.fs.glob("/sys/block/" .. name .. "/md/dev-*") do
-			local dname = nixio.fs.basename(nixio.fs.readlink(member .. "/block"))
-			local dsize = disp_size(tonumber(nixio.fs.readfile(member .. "/block/size")))
-			local dstate = nixio.fs.readfile(member .. "/state"):gsub("_", " "):match "^%s*(.-)%s*$"
-			table.insert(members, { name = dname, size = dsize, state = dstate, color = colors[c] })
-			c = c + 1
+			local members = {}
+			local c = 1
+			for member in nixio.fs.glob("/sys/block/" .. name .. "/md/dev-*") do
+				local dname = nixio.fs.basename(nixio.fs.readlink(member .. "/block"))
+				local dsize = disp_size(tonumber(nixio.fs.readfile(member .. "/block/size")))
+				local dstate = nixio.fs.readfile(member .. "/state"):gsub("_", " "):match "^%s*(.-)%s*$"
+				table.insert(members, { name = dname, size = dsize, state = dstate, color = colors[c] })
+				c = c + 1
+			end
+			table.insert(raid, {name=name, rlevel=rlevel, ndisks=ndisks, size=size, metav=metav, status=status, members=members })
 		end
-		table.insert(raid, {name=name, rlevel=rlevel, ndisks=ndisks, size=size, metav=metav, status=status, members=members })
 	end
    end
 
