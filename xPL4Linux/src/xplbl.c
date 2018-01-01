@@ -21,33 +21,24 @@
 #include <sys/poll.h>
 
 #include <dlfcn.h>
+#include <semaphore.h>
 
 #include "xPL.h"
 
-#include "args.h"
 #include "code_ir_rf.h"
+#include "xpld.h"
+#include "xplbl.h"
 #include "log.h"
 
-typedef struct {
-	uint16_t	id;
-	const char	*name;
-} DEV_NAME;
-
-typedef struct {
-	struct sockaddr_in	addr;
-	uint8_t			mac[6];
-	uint16_t		devtype;
-	char			devtype_name[16];
-	uint16_t		count;
-	uint8_t			key[16];
-	uint8_t			id[4];
-	int			temperature;
-} BL_DEVICE;
-
-#define BL_HEAD_LENGTH		0x38
+#define BL_HEAD_LENGTH	0x38
 #define BL_OFF_MODE		0x26
-#define BL_MODE_AUTH		0x65
-#define BL_MODE_CMD		0x6a
+#define BL_MODE_DISCOVERY_REQ	0x06
+#define BL_MODE_DISCOVERY_RESP	0x07
+#define BL_MODE_AUTH_REQ		0x65
+#define BL_MODE_AUTH_RESP		0xe9
+#define BL_MODE_CMD_REQ		0x6a
+#define BL_MODE_CMD_RESP		0xee
+
 #define BL_CMD_TEMP		0x01
 #define BL_CMD_SEND		0x02
 #define BL_CMD_LEARN		0x03
@@ -59,22 +50,11 @@ static const DEV_NAME dev_names[] = {
 	{ 0x272a, "RM2_Pro_Plus" }
 };
 
-static const int dev_names_count = sizeof(dev_names) / sizeof(dev_names[0]);
-
-uint8_t	bl_master_key[] = { 0x09, 0x76, 0x28, 0x34, 0x3f, 0xe9, 0x9e, 0x23, 0x76, 0x5c, 0x15, 0x13, 0xac, 0xcf, 0x8b, 0x02 };
-uint8_t	bl_master_iv[]  = { 0x56, 0x2e, 0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58 };
-
-MAPS maps_bl = { 0, 0, 0 };
-CODEDEFS codes_bl = { &maps_bl, 0, 0, 0 };
-
 BL_DEVICE	bl_dev[8];
-int		bl_dev_count = 0;
-char		iface[IFNAMSIZ] = "br-lan";
-xPL_ServicePtr	xpl_service = 0;
+int			bl_dev_count = 0;
 
-#define VERSION "1.0"
-
-static const char vendor_id[] = "broadlink";
+int				bl_socket = 0;
+struct sockaddr_in	local_addr;
 
 typedef int (*ptr_aes_crypt_cbc)(void*, int, size_t, void*, void*, void*);
 typedef int (*ptr_aes_setkey)(void*, void*, unsigned int);
@@ -84,6 +64,10 @@ ptr_aes_crypt_cbc func_aes_crypt_cbc = 0;
 ptr_aes_setkey func_aes_setkey_enc = 0;
 ptr_aes_setkey func_aes_setkey_dec = 0;
 
+static const int dev_names_count = sizeof(dev_names) / sizeof(dev_names[0]);
+
+uint8_t	bl_master_key[] = { 0x09, 0x76, 0x28, 0x34, 0x3f, 0xe9, 0x9e, 0x23, 0x76, 0x5c, 0x15, 0x13, 0xac, 0xcf, 0x8b, 0x02 };
+uint8_t	bl_master_iv[]  = { 0x56, 0x2e, 0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58 };
 
 void get_dev_name(uint16_t id, char name[16])
 {
@@ -100,8 +84,9 @@ void get_dev_name(uint16_t id, char name[16])
 
 void device_info(const BL_DEVICE *dev, char* info)
 {
-	_log(LOG_NOTICE, "Device [%s], %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) %s",
+	_log(LOG_NOTICE, "Device [%s %s], %d.%d.%d.%d (%02x:%02x:%02x:%02x:%02x:%02x) %s",
 		dev->devtype_name,
+		dev->dev_name,
 		dev->addr.sin_addr.s_addr >> 24,
 		(dev->addr.sin_addr.s_addr >> 16) &0xff,
 		(dev->addr.sin_addr.s_addr >> 8) &0xff,
@@ -111,22 +96,28 @@ void device_info(const BL_DEVICE *dev, char* info)
 		info);
 }
 
-bool set_iface(char** args, void *unused)
+BL_DEVICE* bl_find_device_by_addr(struct sockaddr_in *addr)
 {
-	strncpy(iface, *args, sizeof(iface));
-	return true;
+	BL_DEVICE	*dev;
+
+	for (dev = bl_dev; dev < bl_dev + bl_dev_count; dev++) {
+		if (0 == memcmp(&(dev->addr.sin_addr), &(addr->sin_addr), sizeof(struct in_addr)))
+			return dev;
+	}
+	return 0;
 }
 
-int bl_send_command(BL_DEVICE *bl_dev, uint8_t *buffer, int in_len, int out_len, int timeout)
+void bl_send_cmd(BL_DEVICE *dev, uint8_t *buffer, int in_len)
 {
+	struct timespec	timeout ;
+	
 	uint8_t		aes_ctx[300];;
 	uint8_t		iv[16];
-	int		s;
-	uint16_t	checksum;
-	int		i;
-	int		received, enc_len;
-	struct timeval tv;
+	uint16_t		checksum;
+	int			i;
+	int			enc_len;
 
+	/* Set header pattern */
 	buffer[0x00] = 0x5a;
 	buffer[0x01] = 0xa5;
 	buffer[0x02] = 0xaa;
@@ -135,114 +126,75 @@ int bl_send_command(BL_DEVICE *bl_dev, uint8_t *buffer, int in_len, int out_len,
 	buffer[0x05] = 0xa5;
 	buffer[0x06] = 0xaa;
 	buffer[0x07] = 0x55;
+	
 	buffer[0x24] = 0x2a;
 	buffer[0x25] = 0x27;
-
+	
+	/* counter */
 	bl_dev->count++;
-	buffer[0x28] = bl_dev->count & 0xff;
-	buffer[0x29] = bl_dev->count >> 8;
-	memcpy(buffer + 0x2a, bl_dev->mac, 6);
-	memcpy(buffer + 0x30, bl_dev->id, 4);
+	buffer[0x28] = dev->count & 0xff;
+	buffer[0x29] = dev->count >> 8;
 
+	memcpy(buffer + 0x2a, dev->mac, 6);
+	memcpy(buffer + 0x30, dev->id, 4);
+
+	/* header checksum */
 	for (checksum = 0xbeaf, i = BL_HEAD_LENGTH; i < in_len; i++)
 		checksum += buffer[i];
 
 	buffer[0x34] = checksum & 0xff;
 	buffer[0x35] = checksum >> 8;
 
-	enc_len = (in_len - 0x38 + (1 << 4) - 1) & ~((1 << 4) - 1);
+	enc_len = (in_len - BL_HEAD_LENGTH + (1 << 4) - 1) & ~((1 << 4) - 1);
 	memcpy(iv, bl_master_iv, sizeof(bl_master_iv));
-	func_aes_setkey_enc(&aes_ctx, bl_dev->key, 128);
+	func_aes_setkey_enc(&aes_ctx, dev->key, 128);
 	func_aes_crypt_cbc(&aes_ctx, 1, enc_len, iv, buffer + BL_HEAD_LENGTH, buffer + BL_HEAD_LENGTH);
 
+	/* payload checksum */
 	for (checksum = 0xbeaf, i = 0; i < BL_HEAD_LENGTH + enc_len; i++)
 		checksum += buffer[i];
 
 	buffer[0x20] = checksum & 0xff;
 	buffer[0x21] = checksum >> 8;
 
-	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	tv.tv_sec = timeout / 1000;
-	tv.tv_usec = (timeout % 1000) * 1000;
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(tv));
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += 5;
 
-	sendto(s, (char*)buffer, BL_HEAD_LENGTH + enc_len, 0, (struct sockaddr *)&(bl_dev->addr), sizeof(struct sockaddr_in));
-	received = recv(s, (char*)buffer, out_len, 0);
+	if (sem_timedwait(&(dev->sem_dev), &timeout)) {
+		device_info(dev, "could not aquire cmd semaphore");
+		sem_destroy(&(dev->sem_dev));
+		sem_init(&(dev->sem_dev), 0, 1);
+		sem_wait(&(dev->sem_dev));
+	}
+	sendto(bl_socket, (char*)buffer, BL_HEAD_LENGTH + enc_len, 0, (struct sockaddr *)&(dev->addr), sizeof(struct sockaddr_in));
+}
+
+int bl_decrypt_response(BL_DEVICE *dev, uint8_t *buffer, int received)
+{
+	uint8_t		aes_ctx[300];
+	uint8_t		iv[16];
+	int			enc_len;
+
+	if (received <= BL_HEAD_LENGTH)
+		return -1;
+
+	enc_len = (received - BL_HEAD_LENGTH + (1 << 4) - 1) & ~((1 << 4) - 1);
+	memcpy(iv, bl_master_iv, sizeof(bl_master_iv));
+	func_aes_setkey_dec(&aes_ctx, dev->key, 128);
+	func_aes_crypt_cbc(&aes_ctx, 0, enc_len, iv, buffer + BL_HEAD_LENGTH, buffer + BL_HEAD_LENGTH);
 
 	if (loglevel >= LOG_DEBUG) {
 		char	b[1024];
 		int	i, l = 0;
 
-		for (i=0; i < 0x38; i++)
+		for (i=0; i < BL_HEAD_LENGTH; i++)
 			l += sprintf(b + l, "%02x:", buffer[i]);
 		b[l++] = '\n';
-		for (i=0x38; i < received; i++)
+		for (i=BL_HEAD_LENGTH; i < received; i++)
 			l += sprintf(b + l, "%02x:", buffer[i]);
-		_log(LOG_DEBUG, "received: (%d) %s", received, b);
+		_log(LOG_DEBUG, "data after decrypt: (%d)\n%s", received, b);
 	}
-
-	if (received > BL_HEAD_LENGTH) {
-		enc_len = (received - 0x38 + (1 << 4) - 1) & ~((1 << 4) - 1);
-		memcpy(iv, bl_master_iv, sizeof(bl_master_iv));
-		func_aes_setkey_dec(&aes_ctx, bl_dev->key, 128);
-		func_aes_crypt_cbc(&aes_ctx, 0, enc_len, iv, buffer + BL_HEAD_LENGTH, buffer + BL_HEAD_LENGTH);
-
-		if (loglevel >= LOG_DEBUG) {
-			char	b[1024];
-			int	i, l = 0;
-
-			for (i=0; i < 0x38; i++)
-				l += sprintf(b + l, "%02x:", buffer[i]);
-			b[l++] = '\n';
-			for (i=0x38; i < received; i++)
-				l += sprintf(b + l, "%02x:", buffer[i]);
-			_log(LOG_DEBUG, "received after decrypt: (%d)\n%s", received, b);
-		}
-	}
-
-	close(s);
-	return received;
-}
-
-int bl_get_temperature(BL_DEVICE *bl_dev)
-{
-	uint8_t		buffer[0x200];
-	int		len, temperature;
-
-	memset(&buffer, 0, sizeof(buffer));
-	buffer[BL_OFF_MODE] = BL_MODE_CMD;
-	buffer[BL_HEAD_LENGTH] = BL_CMD_TEMP;
-	len = bl_send_command(bl_dev, buffer, BL_HEAD_LENGTH + 0x10, sizeof(buffer), 1000);
-
-	if (len < BL_HEAD_LENGTH + 6)
-		return 0;
-
-	temperature = buffer[BL_HEAD_LENGTH + 4] * 10 + (buffer[BL_HEAD_LENGTH + 5] % 10);
-	_log(LOG_INFO,"Temperature: %d.%d", temperature / 10, temperature % 10);
-	return temperature;
-}
-
-int bl_auth(BL_DEVICE *bl_dev)
-{
-	uint8_t		buffer[0x200];
-	int		len;
-
-	memcpy(bl_dev->key, bl_master_key, sizeof(bl_master_key));
-
-	memset(&buffer, 0, sizeof(buffer));
-	buffer[BL_OFF_MODE] = BL_MODE_AUTH;
-	gethostname((char*)(buffer + BL_HEAD_LENGTH + 4), 15);
-	buffer[BL_HEAD_LENGTH + 0x1e] = 0x01;
-	buffer[BL_HEAD_LENGTH + 0x2d] = 0x01;
-	strcpy((char*)buffer + BL_HEAD_LENGTH + 0x30, "xpl");
-	len = bl_send_command(bl_dev, buffer, BL_HEAD_LENGTH + 0x50, sizeof(buffer), 5000);
-
-	if (len < BL_HEAD_LENGTH + 0x14)
-		return -1;
-
-	memcpy(bl_dev->id,  buffer + BL_HEAD_LENGTH, 4);
-	memcpy(bl_dev->key, buffer + BL_HEAD_LENGTH + 4, 16);
-	device_info(bl_dev, "authenticated");
+	
 	return 0;
 }
 
@@ -263,39 +215,113 @@ void get_local_ip(int socket, char* iface_name, struct sockaddr_in *addr)
 			addr->sin_addr = ((struct sockaddr_in *)&ifr[i].ifr_addr)->sin_addr;
 }
 
+void bl_handle_sent(BL_DEVICE *dev, uint8_t *buffer, int len)
+{
+	if (loglevel >= LOG_DEBUG) {
+		device_info(dev, "send IR/RF completed");
+	}
+}
+
+void bl_handle_temperature(BL_DEVICE *dev, uint8_t *buffer, int len)
+{
+	int		temp;
+
+	if (len < 6)
+		return;
+	
+	temp = buffer[4] * 10 + (buffer[5] % 10);
+	if (dev->temperature != temp) {
+		char	str_temp[32];
+
+		dev->temperature = temp;
+		snprintf(str_temp, sizeof(str_temp), "temperature %d.%d", temp / 10, temp % 10);
+		device_info(dev, str_temp);	
+	}
+}
+
+void bl_request_temperature(BL_DEVICE *dev)
+{
+	uint8_t	buffer[BL_HEAD_LENGTH + 0x10];
+
+	memset(&buffer, 0, sizeof(buffer));
+	buffer[BL_OFF_MODE] = BL_MODE_CMD_REQ;
+	buffer[BL_HEAD_LENGTH] = BL_CMD_TEMP;
+	bl_send_cmd(dev, buffer, BL_HEAD_LENGTH + 0x10);
+}
+
+void bl_handle_cmd(BL_DEVICE *dev, uint8_t *buffer, int len)
+{
+	int			cmd;
+	
+	if (len < BL_HEAD_LENGTH)
+		return;
+	
+	bl_decrypt_response(dev, buffer, len);
+	cmd = buffer[BL_HEAD_LENGTH];
+
+	if (cmd == BL_CMD_TEMP)
+		bl_handle_temperature(dev, buffer + BL_HEAD_LENGTH, len - BL_HEAD_LENGTH);
+	else if (cmd == BL_CMD_SEND)
+		bl_handle_sent(dev, buffer + BL_HEAD_LENGTH, len - BL_HEAD_LENGTH);
+}
+
+void bl_handle_auth(BL_DEVICE *dev, uint8_t *buffer, int len)
+{
+	if (len < BL_HEAD_LENGTH + 0x14)
+		return;
+	
+	bl_decrypt_response(dev, buffer, len);
+	memcpy(dev->id,  buffer + BL_HEAD_LENGTH, 4);
+	memcpy(dev->key, buffer + BL_HEAD_LENGTH + 4, 16);
+	device_info(dev, "authenticated");
+
+	bl_request_temperature(dev);
+}
+
+void bl_auth(BL_DEVICE *dev)
+{
+	uint8_t	buffer[BL_HEAD_LENGTH + 0x50];
+
+	memcpy(dev->key, bl_master_key, sizeof(bl_master_key));
+
+	memset(&buffer, 0, sizeof(buffer));
+	buffer[BL_OFF_MODE] = BL_MODE_AUTH_REQ;
+	gethostname((char*)(buffer + BL_HEAD_LENGTH + 4), 15);
+	buffer[BL_HEAD_LENGTH + 0x1e] = 0x01;
+	buffer[BL_HEAD_LENGTH + 0x2d] = 0x01;
+	strcpy((char*)buffer + BL_HEAD_LENGTH + 0x30, "xpl");
+	bl_send_cmd(dev, buffer, BL_HEAD_LENGTH + 0x50);
+}
+
+void bl_handle_discovery(uint8_t *buffer, int len, struct sockaddr_in *addr_from)
+{
+	BL_DEVICE	*dev = bl_dev + bl_dev_count++;
+
+	memset(dev, 0, sizeof(BL_DEVICE));
+	memcpy(dev->mac, buffer + 0x3a, 6);
+	memcpy(&dev->addr, addr_from, sizeof(*addr_from));
+	dev->devtype = buffer[0x34] | buffer[0x35] << 8;
+	get_dev_name(dev->devtype, dev->devtype_name);
+	if (len >= 0x4f)
+		memcpy(&dev->dev_name, buffer+0x40, 0x0f);
+
+	sem_init(&dev->sem_dev, 0, 1);
+	device_info(dev, "discovered");
+	
+	bl_auth(dev);
+}
+
 void bl_discover()
 {
-	int		s;
-	int		rc;
-	uint32_t	ctrue = 1;
-	struct sockaddr_in	local_addr, addr, addr_from;
-	socklen_t	len;
-	int received;
-
-	uint8_t		buffer[0x200];
-	struct tm	tm_local;
-	const time_t	now = time(0);
-	time_t		time_diff, time_start, time_remain;
-	uint16_t	checksum;
-	int		i;
+	const time_t		now = time(0);
+	time_t			time_diff;
+	struct tm		tm_local;
+	uint8_t			buffer[0x30];
+	uint16_t			checksum;
+	int				i;
+	struct sockaddr_in	addr;
 
 	bl_dev_count = 0;
-
-	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	memset(&local_addr, 0, sizeof(local_addr));
-	local_addr.sin_family = AF_INET;
-	get_local_ip(s, iface, &local_addr);
-
-	rc = bind(s, (struct sockaddr *)&local_addr, sizeof(local_addr));
-	if (rc != 0) {
-		_log(LOG_ERR, "bind failed");
-		return;
-	}
-	len = sizeof(local_addr);
-	getsockname(s, (struct sockaddr *)&local_addr, &len);
-
-	setsockopt(s, SOL_SOCKET, SO_BROADCAST, (char*)&ctrue, sizeof(ctrue));
-	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&ctrue, sizeof(ctrue));
 
 	tm_local = *localtime(&now);
 	time_diff = now - mktime(gmtime(&now));
@@ -318,7 +344,7 @@ void bl_discover()
 
 	memcpy(buffer+0x18, &local_addr.sin_addr.s_addr, 4);
 	memcpy(buffer+0x1c, &local_addr.sin_port, 2);
-	buffer[0x26] = 6;
+	buffer[BL_OFF_MODE] = BL_MODE_DISCOVERY_REQ;
 
 	for (checksum = 0xbeaf, i = 0; i < 0x30; i++)
 		checksum += buffer[i];
@@ -330,38 +356,65 @@ void bl_discover()
 	addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 	addr.sin_port = htons(80);
 
-	bl_dev_count = 0;
-	rc = sendto(s, (char*)buffer, 0x30, 0, (struct sockaddr *)&addr, sizeof(addr));
+	if (loglevel >= LOG_DEBUG) {
+		char	b[1024];
+		int	i, l = 0;
 
-	time_start = time(0);
-	time_remain = DISCOVERY_TIMEOUT;
-	while (time_remain > 0 && bl_dev_count < sizeof(bl_dev)/sizeof(bl_dev[0])) {
-		struct timeval tv;
-
-		tv.tv_sec = time_remain;
-		tv.tv_usec = 0;
-		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(tv));
-
-		len = sizeof(addr_from);
-		received = recvfrom(s, (char*)buffer, sizeof(buffer), 0, (struct sockaddr *)&addr_from, &len);
-
-		if (received > 0) {
-			BL_DEVICE	*dev = bl_dev + bl_dev_count;
-
-			memset(dev, 0, sizeof(BL_DEVICE));
-			memcpy(dev->mac, buffer + 0x3a, 6);
-			memcpy(&dev->addr, &addr_from, sizeof(addr_from));
-			dev->devtype = buffer[0x34] | buffer[0x35] << 8;
-			get_dev_name(dev->devtype, dev->devtype_name);
-			bl_dev_count++;
-			device_info(dev, "discovered");
-		}
-
-		time_remain = time_start + DISCOVERY_TIMEOUT - time(0);
+		for (i=0; i < sizeof(buffer); i++)
+			l += sprintf(b + l, "%02x:", buffer[i]);
+		_log(LOG_DEBUG, "Sending discovery request: %s", b);
 	}
 
-	for (i = 0; i < bl_dev_count; i++)
-		bl_auth(bl_dev + i);
+	sendto(bl_socket, (char*)buffer, sizeof(buffer), 0, (struct sockaddr *)&addr, sizeof(addr));
+}
+
+void bl_io_handler(int signal)
+{
+	uint8_t			buffer[0x200];
+	socklen_t			len;
+	struct sockaddr_in	addr_from;
+	int				received;
+
+	len = sizeof(addr_from);
+	received = recvfrom(bl_socket, (char*)buffer, sizeof(buffer), 0, (struct sockaddr *)&addr_from, &len);
+
+	if (received == 0)
+		return;
+	
+	if (loglevel >= LOG_DEBUG) {
+		char	b[4096];
+		int	i, l = 0;
+
+		for (i=0; i < 0x38; i++)
+			l += sprintf(b + l, "%02x:", buffer[i]);
+		b[l++] = '\n';
+		for (i=0x38; i < received; i++)
+			l += sprintf(b + l, "%02x:", buffer[i]);
+		_log(LOG_DEBUG, "received: (%d) %s", received, b);
+	}
+
+	if (received < BL_OFF_MODE)
+		return;
+
+	if (buffer[BL_OFF_MODE]  == BL_MODE_DISCOVERY_RESP) {
+		bl_handle_discovery(buffer, received, &addr_from);
+		return;
+	}
+
+	BL_DEVICE	*dev = bl_find_device_by_addr(&addr_from);
+
+	if (!dev)
+		return;
+	
+	sem_post(&dev->sem_dev);
+
+	if (buffer[BL_OFF_MODE]  == BL_MODE_AUTH_RESP) {
+		bl_handle_auth(dev, buffer, received);
+		return;
+	}
+
+	if (buffer[BL_OFF_MODE]  == BL_MODE_CMD_RESP)
+		bl_handle_cmd(dev, buffer, received);
 }
 
 size_t bl_write_frame(void *unused, uint8_t *buffer, size_t len, uint16_t time_ms)
@@ -410,7 +463,7 @@ void bl_send_code(BL_DEVICE *dev, CODEDEF *code, xPL_MessagePtr msg)
 		return;
 
 	memset(&buffer, 0, sizeof(buffer));
-	buffer[BL_OFF_MODE] = BL_MODE_CMD;
+	buffer[BL_OFF_MODE] = BL_MODE_CMD_REQ;
 
 	pos = BL_HEAD_LENGTH;
 	buffer[pos] = BL_CMD_SEND;
@@ -456,7 +509,9 @@ void bl_send_code(BL_DEVICE *dev, CODEDEF *code, xPL_MessagePtr msg)
 		_log(LOG_DEBUG, "IR/RF data: (%d)\n%s", pos, b);
 	}
 
-	len = bl_send_command(dev, buffer, pos, sizeof(buffer), 500);
+	bl_send_cmd(dev, buffer, pos);
+
+
 	if (loglevel >= LOG_NOTICE) {
 		char			info[256];
 		size_t			info_pos;
@@ -492,7 +547,7 @@ void xpl_send_code(BL_DEVICE *dev, xPL_MessagePtr msg)
 		return;
 	}
 
-	for (code = codes_bl.entries; code < codes_bl.entries + codes_bl.count; code++) {
+	for (code = codes.entries; code < codes.entries + codes.count; code++) {
 		if (strcmp(code_name, code->name))
 			continue;
 
@@ -504,7 +559,7 @@ void xpl_send_code(BL_DEVICE *dev, xPL_MessagePtr msg)
 		_log(LOG_ERR, "Unknown code %s", code_name);
 }
 
-void xpl_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
+void bl_msg_handler(xPL_Message *msg, xPL_ObjectPtr data)
 {
 	BL_DEVICE	*d, *dev;
 	char		*vendor, *device, *instance, *msg_class, *msg_type;
@@ -512,8 +567,10 @@ void xpl_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
 	size_t		len;
 	int		tries;
 
+	char	*my_vendor_id = data;
+	
 	vendor = xPL_getTargetVendor(msg);
-	if (vendor == 0 || strcmp(vendor_id, vendor))
+	if (vendor == 0 || strcmp(vendor, my_vendor_id))
 		return;
 
 	device = xPL_getTargetDeviceID(msg);
@@ -567,90 +624,64 @@ void xpl_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
 	xpl_send_code(dev, msg);
 }
 
-void xpl_broadlink_shutdownHandler(int onSignal) {
-	if (xpl_service) {
-		xPL_setServiceEnabled(xpl_service, FALSE);
-		xPL_releaseService(xpl_service);
-	}
-
-	xPL_shutdown();
-	dlclose(cryptolib);
-	_log(LOG_INFO, "Shutdown");
-	exit(0);
-}
-
-int xpl_broadlink_main(int argc, String argv[]) {
-	static const PARAM	params[] = {
-		{ "n", "net", "Set network interface", 1, set_iface },
-		{ "m", "map", "Value map", 1, add_map, &maps_bl },
-		{ "c", "code", "Code definition", 1, add_code, &codes_bl },
-	};
-
+int bl_startup()
+{
+	int		rc;
+	socklen_t	len;
+	uint32_t	ctrue = 1;
+	
 	cryptolib = dlopen("libmbedcrypto.so", RTLD_NOW);
 	if (!cryptolib)
 		cryptolib = dlopen("libpolarssl.so", RTLD_NOW);
 
 	if (!cryptolib) {
-		_log(LOG_EMERG, "Could not open SSL library");
+		_log(LOG_NOTICE, "Could not open SSL library -> Broadlink xPL gateway not started");
 		return -1;
+	} else {
+		func_aes_crypt_cbc  = dlsym(cryptolib, "mbedtls_aes_crypt_cbc");
+		func_aes_setkey_enc = dlsym(cryptolib, "mbedtls_aes_setkey_enc");
+		func_aes_setkey_dec = dlsym(cryptolib, "mbedtls_aes_setkey_dec");
+
+		if (!func_aes_crypt_cbc)
+			func_aes_crypt_cbc  = dlsym(cryptolib, "aes_crypt_cbc");
+		if (!func_aes_setkey_enc)
+			func_aes_setkey_enc = dlsym(cryptolib, "aes_setkey_enc");
+		if (!func_aes_setkey_dec)
+			func_aes_setkey_dec = dlsym(cryptolib, "aes_setkey_dec");
+
+		if (!func_aes_crypt_cbc || !func_aes_setkey_enc || !func_aes_setkey_dec) {
+			dlclose(cryptolib);
+			cryptolib = 0;
+			_log(LOG_NOTICE, "AES functions not found in SSL library -> Broadlink xPL gateway not started");
+			return -1;
+		}
 	}
 
-	func_aes_crypt_cbc  = dlsym(cryptolib, "mbedtls_aes_crypt_cbc");
-	func_aes_setkey_enc = dlsym(cryptolib, "mbedtls_aes_setkey_enc");
-	func_aes_setkey_dec = dlsym(cryptolib, "mbedtls_aes_setkey_dec");
+	bl_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	memset(&local_addr, 0, sizeof(local_addr));
+	local_addr.sin_family = AF_INET;
+	get_local_ip(bl_socket, iface, &local_addr);
 
-	if (!func_aes_crypt_cbc)
-		func_aes_crypt_cbc  = dlsym(cryptolib, "aes_crypt_cbc");
-	if (!func_aes_setkey_enc)
-		func_aes_setkey_enc = dlsym(cryptolib, "aes_setkey_enc");
-	if (!func_aes_setkey_dec)
-		func_aes_setkey_dec = dlsym(cryptolib, "aes_setkey_dec");
-
-	if (!func_aes_crypt_cbc || !func_aes_setkey_enc || !func_aes_setkey_dec) {
-		_log(LOG_EMERG, "AES functions not found in SSL library");
+	rc = bind(bl_socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
+	if (rc != 0) {
+		_log(LOG_ERR, "bind failed");
 		return -1;
 	}
+	len = sizeof(local_addr);
+	getsockname(bl_socket, (struct sockaddr *)&local_addr, &len);
 
-	if (!xPL_parseCommonArgs(&argc, argv, FALSE)) {
-		_log(LOG_ERR, "Unable to start xPL");
-		return -1;
-	}
+	setsockopt(bl_socket, SOL_SOCKET, SO_BROADCAST, (char*)&ctrue, sizeof(ctrue));
+	setsockopt(bl_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&ctrue, sizeof(ctrue));
 
-	if (!parse_args(argc, argv, params, sizeof(params)/sizeof(params[0])))
-		return -2;
+	fcntl(bl_socket, F_SETOWN, getpid());
+	fcntl(bl_socket, F_SETFL, FASYNC);
 
 	bl_discover();
-
-//	for (i = 0; i< bl_dev_count; i++) {
-//		bl_dev[i].temperature = bl_get_temperature(bl_dev + i);
-//	}
-
-	dump_maps(&maps_bl);
-	dump_codes(&codes_bl);
-
-	/* Start xPL up */
-	if (!xPL_initialize(xPL_getParsedConnectionType())) {
-		_log(LOG_ERR, "Unable to start xPL");
-		return -3;
-	}
-
-	_log(LOG_INFO, "Startup");
-	xpl_service =  xPL_createService((char*)vendor_id, "default", "default");
-	xPL_setServiceVersion(xpl_service, VERSION);
-	xPL_setServiceEnabled(xpl_service, TRUE);
-
-	/* And a listener for all xPL messages */
-	xPL_addMessageListener(xpl_msg_handler, NULL);
-
-	/* Install signal traps for proper shutdown */
-	signal(SIGTERM, xpl_broadlink_shutdownHandler);
-	signal(SIGINT,  xpl_broadlink_shutdownHandler);
-
-	/** Main Loop  **/
-	for (;;) {
-	/* Let XPL run for a while, returning after it hasn't seen any */
-	/* activity in 100ms or so                                     */
-		xPL_processMessages(100);
-	}
+	return 0;
 }
 
+void bl_shutdown()
+{
+	if (cryptolib)
+		dlclose(cryptolib);
+}

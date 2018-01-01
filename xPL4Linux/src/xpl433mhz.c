@@ -7,11 +7,14 @@
 #include <time.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <net/if.h>
+
 #include "alsa.h"
 #include "xPL.h"
 
 #include "log.h"
 #include "code_ir_rf.h"
+#include "xpld.h"
 #include "args.h"
 
 #define VERSION "1.0"
@@ -24,13 +27,8 @@ typedef struct {
 
 /* global/static variables */
 static const char pcm_device[] = "default";
-static const char rf_code_vendor[] = "433mhz";
 
-xPL_ServicePtr	rf_code_service = 0;
 sem_t		sem_sound;
-
-MAPS maps_433 = { 0, 0, 0 };
-CODEDEFS codes_433 = { &maps_433, 0, 0, 0 };
 
 size_t rf_write_frame(void *ctx, uint8_t *buffer, size_t len, uint16_t time_ms)
 {
@@ -136,7 +134,7 @@ void rf_send_code(const CODEDEF *code, xPL_MessagePtr msg)
 
 	play_rf_code(pcm_device, code, cmd, sizeof(cmd), repeat);
 
-	buf_pos = snprintf(buf, sizeof(buf), "%s-%s.%s -> %s-%s.%s : %s.%s {",
+	buf_pos = snprintf(buf, sizeof(buf), "RF 433mhz %s-%s.%s -> %s-%s.%s : %s.%s {",
 		xPL_getSourceVendor(msg), xPL_getSourceDeviceID(msg), xPL_getSourceInstanceID(msg),
 		xPL_getTargetVendor(msg), xPL_getTargetDeviceID(msg), xPL_getTargetInstanceID(msg),
 		xPL_getSchemaClass(msg), xPL_getSchemaType(msg));
@@ -145,21 +143,23 @@ void rf_send_code(const CODEDEF *code, xPL_MessagePtr msg)
 	for (i = 0, nv = body->namedValues; i < body->namedValueCount; i++)
 		buf_pos += snprintf(buf + buf_pos, sizeof(buf) - buf_pos, " %s=%s", nv[i]->itemName, nv[i]->itemValue);
 
-	buf_pos += snprintf(buf + buf_pos, sizeof(buf) - buf_pos, " } => RF 433mhz code %s, (repeat=%d) ",
+	buf_pos += snprintf(buf + buf_pos, sizeof(buf) - buf_pos, " } => code %s, (repeat=%d) ",
 		code->name, repeat);
 	for (i = 0; i < (code->bits + 7) >> 3; i++)
 		buf_pos += snprintf(buf + buf_pos, sizeof(buf) - buf_pos, "%02x", cmd[i]);
 	_log(LOG_NOTICE, buf);
 }
 
-void rf_code_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
+void xpl433mhz_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
 {
 	char	*vendor, *device, *msg_class, *msg_type;
 	CODEDEF	*code;
-	int	found = 0;
+	int		found = 0;
+	char	*my_vendor_id = data;
 
+	
 	vendor = xPL_getTargetVendor(msg);
-	if (vendor == 0 || strcmp(vendor, rf_code_vendor))
+	if (vendor == 0 || strcmp(vendor, my_vendor_id))
 		return;
 
 	device = xPL_getTargetDeviceID(msg);
@@ -174,7 +174,7 @@ void rf_code_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
 	if (msg_type == 0 || strcmp(msg_type, "basic"))
 		return;
 
-	for (code = codes_433.entries; code < codes_433.entries + codes_433.count; code++) {
+	for (code = codes.entries; code < codes.entries + codes.count; code++) {
 		if (strcmp(device, code->name))
 			continue;
 
@@ -186,59 +186,8 @@ void rf_code_msg_handler(xPL_MessagePtr msg, xPL_ObjectPtr data)
 		_log(LOG_ERR, "Unknown code %s", device);
 }
 
-void xpl433mhz_shutdownHandler(int onSignal) {
-	if (rf_code_service) {
-		xPL_setServiceEnabled(rf_code_service, FALSE);
-		xPL_releaseService(rf_code_service);
-	}
-
-	xPL_shutdown();
-	_log(LOG_NOTICE, "Shutdown");
-	exit(0);
-}
-
-int xpl433mhz_main(int argc, String argv[]) {
-	static const PARAM	params[] = {
-		{ "m", "map", "Value map", 1, add_map, &maps_433 },
-		{ "c", "code", "Code definition", 1, add_code, &codes_433 },
-	};
-
-	if (!xPL_parseCommonArgs(&argc, argv, FALSE)) {
-		_log(LOG_EMERG, "Unable to start xPL");
-		return -1;
-	}
-
-	if (!parse_args(argc, argv, params, sizeof(params)/sizeof(params[0])))
-		return -2;
-
-	dump_maps(&maps_433);
-	dump_codes(&codes_433);
-
-	/* Start xPL up */
-	if (!xPL_initialize(xPL_getParsedConnectionType())) {
-		_log(LOG_EMERG, "Unable to start xPL");
-		return -3;
-	}
-
+int xpl433mhz_startup()
+{
 	sem_init(&sem_sound, 0, 1);
-
-	rf_code_service =  xPL_createService((char*)rf_code_vendor, "sender", "default");
-	xPL_setServiceVersion(rf_code_service, VERSION);
-	xPL_setServiceEnabled(rf_code_service, TRUE);
-
-	/* And a listener for all xPL messages */
-	xPL_addMessageListener(rf_code_msg_handler, NULL);
-
-	/* Install signal traps for proper shutdown */
-	signal(SIGTERM, xpl433mhz_shutdownHandler);
-	signal(SIGINT,  xpl433mhz_shutdownHandler);
-
-	_log(LOG_NOTICE, "Startup");
-
-	/** Main Loop  **/
-	for (;;) {
-	/* Let XPL run for a while, returning after it hasn't seen any */
-	/* activity in 100ms or so                                     */
-		xPL_processMessages(100);
-	}
+	return 0;
 }

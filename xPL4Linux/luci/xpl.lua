@@ -8,12 +8,8 @@ function index()
         end
 
 	entry({"admin", "services", "xpl"},
-		alias("admin", "services", "xpl", "general"),
+		alias("admin", "services", "xpl", "forwards"),
 		_("xPL"), 60)
-
-	entry({"admin", "services", "xpl", "general"},
-		cbi("xpl/general"),
-		_("General"), 10).leaf = true
 
 	entry({"admin", "services", "xpl", "forwards"},
 		cbi("xpl/forwards"),

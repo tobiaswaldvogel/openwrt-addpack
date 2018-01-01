@@ -6,25 +6,25 @@
 #include <limits.h>
 #include <stdlib.h>
 
-extern int xpl433mhz_main(int argc, char **argv);
-extern int xpl_broadlink_main(int argc, char **argv);
+//extern int xpl433mhz_main(int argc, char **argv);
+//extern int xpl_broadlink_main(int argc, char **argv);
 extern int xpld_main(int argc, char **argv);
-extern int xplhub_main(int argc, char **argv);
+//extern int xplhub_main(int argc, char **argv);
 extern int xplsend_main(int argc, char **argv);
-extern int xpllogger_main(int argc, char **argv);
-extern int test_main(int argc, char **argv);
+//extern int xpllogger_main(int argc, char **argv);
+//extern int test_main(int argc, char **argv);
 
 static struct {
 	const char *name;
 	int (*func_main)(int argc, char **argv);
 } multicall[] = {
-	{ "xpl433mhz", xpl433mhz_main },
-	{ "xplbl", xpl_broadlink_main },
+//	{ "xpl433mhz", xpl433mhz_main },
+//	{ "xplbl", xpl_broadlink_main },
 	{ "xpld", xpld_main },
-	{ "xplhub", xplhub_main },
+//	{ "xplhub", xplhub_main },
 	{ "xplsend", xplsend_main },
-	{ "xpllogger", xpllogger_main },
-	{ "test", test_main },
+//	{ "xpllogger", xpllogger_main },
+//	{ "test", test_main },
 };
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))

@@ -1,0 +1,42 @@
+--- a/xPL-hub.c
++++ b/xPL-hub.c
+@@ -79,7 +79,7 @@
+   }
+ 
+   /* Allocate sufficiant space */
+-  xPL_Debug("There are %d local network addresses on this system");
++  xPL_Debug("There are %d local network addresses on this system", interfaceList.ifc_len);
+   localIPAddrs = (String *) malloc(sizeof(String) * localNetCount);
+   for (ifIndex = 0; ifIndex < interfaceList.ifc_len; ifIndex++) {
+     ifInfo = &(interfaceList.ifc_req[ifIndex]);
+@@ -294,6 +294,9 @@
+     if (clientIndex < clientCount) {
+       memcpy(&(clientList[clientIndex]), &(clientList[clientIndex + 1]), (clientCount - clientIndex) * sizeof(hubClient));
+     }
++  xPL_Debug("Removed client %s on port %d, interval is %d, client count now %d",
++	    theClient->clientIdent, theClient->clientPort, theClient->heartbeatInterval, clientCount);
++
+     
+     /* And we are done */
+     return TRUE;
+@@ -331,6 +334,8 @@
+   /* Get the port #, if any */
+   if ((clientPort = getClientPort(theMessage)) == -1) return;
+   
++  if (clientPort == BASE_XPL_PORT) return;
++	
+   /* Get the interval for updates */
+   clientHeartbeatInterval = getHeartbeatInterval(theMessage);
+ 
+@@ -345,6 +350,11 @@
+     return;
+   }
+ 
++  if (clientSigningOff) {
++    releaseClient(theClient);
++    return;
++  }
++
+   /* Check for client ident change */
+   updateClientIdent(theMessage, theClient);
+ 

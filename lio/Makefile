@@ -17,7 +17,7 @@ PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=?
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_URL:=https://lio.svn.sourceforge.net/svnroot/lio/trunk
-PKG_SOURCE:=$(PKG_SOURCE_SUBDIR).tar.by2
+PKG_SOURCE:=$(PKG_SOURCE_SUBDIR).tar.bz2
 
 include $(INCLUDE_DIR)/package.mk
 

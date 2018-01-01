@@ -55,11 +55,11 @@ define Package/luci-app-xpl/description
  xPL server for USB RF device and BroadLink
 endef
 
-define Build/Prepare
-	$(call Build/Prepare/Default)
-	mkdir -p $(PKG_BUILD_DIR)/multicall
-	$(CP) src/* $(PKG_BUILD_DIR)/multicall
-endef
+#define Build/Prepare
+#	$(call Build/Prepare/Default)
+#	mkdir -p $(PKG_BUILD_DIR)/multicall
+#	#$(CP) src/* $(PKG_BUILD_DIR)/multicall/
+#endef
 
 define Build/Configure
 endef
@@ -74,26 +74,27 @@ XPL_LIB=\
 	xPL-config.c \
 	xPL-hub.c
 
+
+
 XPL_MULTI=\
-	multicall/main.c \
-	multicall/xpld.c \
-	multicall/code_ir_rf.c \
-	multicall/crc.c \
-	multicall/xpl433mhz.c \
-	multicall/xplbl.c \
-	multicall/alsa.c \
-	multicall/args.c \
-	multicall/log.c \
-	multicall/xplsend.o \
-	multicall/xplhub.o \
-	multicall/xpllogger.o \
-	multicall/test.c
+	main.c \
+	xpld.c \
+	code_ir_rf.c \
+	crc.c \
+	xpl433mhz.c \
+	xplbl.c \
+	xplfwd.c \
+	alsa.c \
+	args.c \
+	log.c \
+	xplsend.o
 
 XPL_DEPS=\
 	-L$(STAGING_DIR)/usr/lib \
 	-ldl \
-	-lasound \
-	-pthread
+	-lrt \
+	-lpthread \
+	-lasound
 
 EXTRA_CFLAGS=\
 	-Wall -Wno-unused-result \
@@ -105,17 +106,8 @@ define Build/Compile
 	(cd  $(PKG_BUILD_DIR); \
 		$(TARGET_CC) $(TARGET_CFLAGS) $(EXTRA_CFLAGS) \
 		-I$(STAGING_DIR)/usr/include -L$(STAGING_DIR)/usr/lib \
-		-Dmain=xplhub_main -DprintUsage=xplhub_printUsage \
-		-c -o multicall/xplhub.o examples/xPL_Hub.c; \
-		$(TARGET_CC) $(TARGET_CFLAGS) $(EXTRA_CFLAGS) \
-		-I$(STAGING_DIR)/usr/include -L$(STAGING_DIR)/usr/lib \
 		-Dmain=xplsend_main -DprintUsage=xplsend_printUsage \
-		-c -o multicall/xplsend.o examples/xPLSend.c; \
-		$(TARGET_CC) $(TARGET_CFLAGS) $(EXTRA_CFLAGS) \
-		-I$(STAGING_DIR)/usr/include -L$(STAGING_DIR)/usr/lib \
-		-Dmain=xpllogger_main -DprintUsage=xpllogger_printUsage \
-		-DshutdownHandler=xpllogger_shutdownHandler \
-		-c -o multicall/xpllogger.o examples/xPL_Logger.c; \
+		-c -o xplsend.o examples/xPLSend.c; \
 		$(TARGET_CC) $(TARGET_CFLAGS) $(EXTRA_CFLAGS) \
 		-I$(STAGING_DIR)/usr/include -I$(PKG_BUILD_DIR) \
 		-o xplmulti $(XPL_LIB) $(XPL_MULTI) $(XPL_DEPS); \
@@ -144,16 +136,10 @@ endef
 define Package/xpl4linux/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/xplmulti $(1)/usr/bin
-	$(LN) xplmulti $(1)/usr/bin/xpl433mhz
-	$(LN) xplmulti $(1)/usr/bin/xplbl
 	$(LN) xplmulti $(1)/usr/bin/xpld
 	$(LN) xplmulti $(1)/usr/bin/xplsend
-	$(LN) xplmulti $(1)/usr/bin/xplhub
-	$(LN) xplmulti $(1)/usr/bin/xpllogger
 	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/xplhub.init $(1)/etc/init.d/xplhub
 	$(INSTALL_BIN) ./files/xpld.init $(1)/etc/init.d/xpld
-	$(INSTALL_BIN) ./files/xplirrf.init $(1)/etc/init.d/xplirrf
 endef
 
 define Package/xpl4linux/postinst
@@ -172,7 +158,6 @@ define Package/luci-app-xpl/install
 	$(INSTALL_DATA) luci/xpl.lua    $(1)/usr/lib/lua/luci/controller/xpl.lua
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/xpl
 	$(INSTALL_DATA) luci/model/forwards.lua    $(1)/usr/lib/lua/luci/model/cbi/xpl/forwards.lua
-	$(INSTALL_DATA) luci/model/general.lua      $(1)/usr/lib/lua/luci/model/cbi/xpl/general.lua
 	$(INSTALL_DATA) luci/model/irrf_codes.lua   $(1)/usr/lib/lua/luci/model/cbi/xpl/irrf_codes.lua
 	$(INSTALL_DATA) luci/model/irrf_values.lua  $(1)/usr/lib/lua/luci/model/cbi/xpl/irrf_values.lua
 	$(INSTALL_DATA) luci/model/schedule.lua    $(1)/usr/lib/lua/luci/model/cbi/xpl/schedule.lua

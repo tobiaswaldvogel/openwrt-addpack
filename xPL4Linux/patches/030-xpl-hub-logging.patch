@@ -1,0 +1,46 @@
+--- a/xPL-hub.c
++++ b/xPL-hub.c
+@@ -21,6 +21,7 @@
+ 
+ #include "xPL.h"
+ #include "xPL_priv.h"
++#include "log.h"
+ 
+ typedef struct {
+   int clientPort;
+@@ -199,7 +200,7 @@
+ 
+   /* See if there is a change */
+   if (!strcmp(theClient->clientIdent, identBuff)) return;
+-  xPL_Debug("Client changing Ident from %s to %s", theClient->clientIdent, identBuff);
++  _log(LOG_NOTICE, "Client changing Ident from %s to %s", theClient->clientIdent, identBuff);
+   STR_FREE(theClient->clientIdent);
+   theClient->clientIdent = xPL_StrDup(identBuff);
+ }
+@@ -267,7 +268,7 @@
+   theClient->clientAddr.sin_addr.s_addr = inet_addr(xPL_getListenerIPAddr());
+ 
+   /* And we are ready to go */
+-  xPL_Debug("Added new client %s on port %d, interval is %d, client count now %d",
++  _log(LOG_NOTICE, "Added new client %s on port %d, interval is %d, client count now %d",
+ 	    theClient->clientIdent, clientPort, heartbeatInterval, clientCount);
+   
+   /* And return it */
+@@ -294,7 +295,7 @@
+     if (clientIndex < clientCount) {
+       memcpy(&(clientList[clientIndex]), &(clientList[clientIndex + 1]), (clientCount - clientIndex) * sizeof(hubClient));
+     }
+-  xPL_Debug("Removed client %s on port %d, interval is %d, client count now %d",
++  _log(LOG_NOTICE, "Removed client %s on port %d, interval is %d, client count now %d",
+ 	    theClient->clientIdent, theClient->clientPort, theClient->heartbeatInterval, clientCount);
+ 
+     
+@@ -440,7 +441,7 @@
+     if (elapsedTime < ((theClient->heartbeatInterval * 2) + 1)) continue;
+     
+     /* We have not heard from this client -- remove it */
+-    xPL_Debug("Havn't heard from client @ port %d in %d minutes (heartbeats expected every %d minutes) -- Removing it",
++    _log(LOG_NOTICE, "Havn't heard from client @ port %d in %d minutes (heartbeats expected every %d minutes) -- Removing it",
+ 	      theClient->clientPort, elapsedTime, theClient->heartbeatInterval);
+     releaseClient(theClient);
+   }
