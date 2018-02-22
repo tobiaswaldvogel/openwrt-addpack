@@ -38,7 +38,7 @@ define Package/samba4-server
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS server with ADS support
   URL:=http://www.samba.org/
   VARIANT:=samba4-server
-  DEPENDS:=+USE_EGLIBC:librt +libpopt +libuuid +libopenldap-sasl +krb5-mit-libs +krb5-mit-client +libiconv +libacl +libreadline +libaio +libtirpc +wsdd
+  DEPENDS:=+libpthread
 endef
 
 define Package/samba4-client
@@ -46,14 +46,7 @@ define Package/samba4-client
   CATEGORY:=Network
   TITLE:=Samba $(PKG_VERSION) SMB/CIFS client
   URL:=http://www.samba.org/
-  DEPENDS:=+libreadline +libncurses +libopenldap-sals +krb5-mit-libs +libaio +zlib
-endef
-
-define Package/samba4-server/config
-config PACKAGE_SAMBA4_MAX_DEBUG_LEVEL
-	int "Maximum level of compiled-in debug messages"
-	depends on PACKAGE_samba4-server || PACKAGE_samba4-client
-	default -1
+  DEPENDS:=+libreadline +libncurses +libpthread
 endef
 
 define Package/samba4-server/description
@@ -72,18 +65,9 @@ define Package/luci-app-$(PKG_NAME)
 endef
 
 TARGET_CFLAGS += \
-	-DMAX_DEBUG_LEVEL=$(CONFIG_PACKAGE_SAMBA4_MAX_DEBUG_LEVEL) \
-	-D_GNU_SOURCE \
-	-D__location__=\\\"\\\" \
-	-ffunction-sections -fdata-sections \
-	-I$(STAGING_DIR)/usr/include/krb5 \
-	-DACTIVE_DIRECTORY \
-	-DDFS_SUPPORT \
-	-DNETLOGON_SUPPORT \
-	-DSAMR_SUPPORT \
-	-DLSA_SUPPORT
+	-ffunction-sections -fdata-sections 
 
-TARGET_LDFLAGS += -Wl,--gc-sections -ltirpc
+TARGET_LDFLAGS += -Wl,--gc-sections
 
 CONFIGURE_VARS += \
 	ac_cv_file__proc_sys_kernel_core_pattern=yes \
@@ -125,11 +109,8 @@ CONFIGURE_VARS += \
 	samba_cv_have_setresuid=yes \
 	samba_cv_have_setresgid=yes \
 	samba_cv_linux_getgrouplist_ok=yes \
-	ac_cv_header_zlib_h=yes \
-	samba_cv_zlib_1_2_3=yes \
-	ac_cv_lib_ext_krb5_krb5_mk_req_extended=yes \
-	smb_krb5_cv_enctype_to_string_takes_krb5_context_arg=no \
-	smb_krb5_cv_enctype_to_string_takes_size_t_arg=yes
+	ac_cv_header_zlib_h=no \
+	samba_cv_zlib_1_2_3=no
 
 CONFIGURE_ARGS += \
 	--exec-prefix=/usr \
@@ -149,7 +130,7 @@ CONFIGURE_ARGS += \
 	--with-piddir=/var/run \
 	--with-privatedir=/etc/samba \
 	--with-sendfile-support \
-	--with-aio-support \
+	--without-aio-support \
 	--without-cluster-support \
 	--without-pam \
 	--without-winbind \
@@ -158,15 +139,15 @@ CONFIGURE_ARGS += \
 	--without-libnetapi \
 	--without-libsmbclient \
 	--without-libsmbsharemodes \
-	--with-ads \
-	--with-krb5=$(STAGING_DIR)/usr \
-	--with-ldap \
+	--without-ads \
+	--without-krb5 \
+	--without-ldap \
 	--with-libiconv=$(STAGING_DIR)/usr/lib/libiconv \
-	--with-acl-support \
-	--with-quotas \
-	--with-syslog \
+	--without-acl-support \
+	--without-quotas \
+	--without-syslog \
 	--with-shared-modules=pdb_tdbsam,pdb_wbc_sam,idmap_nss,nss_info_template,auth_winbind,auth_wbc,auth_domain,vfs \
-	--with-static-modules=vfs_default,vfs_dirsort,vfs_posixacl,vfs_daio_linux
+	--with-static-modules=vfs_default
 
 MAKE_FLAGS += DYNEXP= PICFLAG= MODULES=
 
@@ -193,8 +174,6 @@ define Package/samba4-server/install
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/smbcacls
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/nmblookup
 	ln -sf ../sbin/$(PKG_NAME)_multicall $(1)/usr/bin/testparm
-	$(INSTALL_DIR) $(1)/etc/openldap/schema
-	$(CP) $(PKG_BUILD_DIR)/examples/LDAP/samba.schema $(1)/etc/openldap/schema
 	$(INSTALL_DIR) $(1)/etc/samba
 	ln -sf /var/etc/secrets.tdb $(1)/etc/samba/secrets.tdb
 	ln -sf /var/etc/schannel_store.tdb $(1)/etc/samba/schannel_store.tdb
